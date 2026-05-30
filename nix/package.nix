@@ -12,7 +12,7 @@
 let
   manifest = lib.importTOML ../Cargo.toml;
   zigDeps = callPackage ../vendor/libghostty-vt/build.zig.zon.nix {
-    name = "herdr-libghostty-vt-zig-cache";
+    name = "shuvr-libghostty-vt-zig-cache";
     inherit zstd;
     linkFarm = name: entries:
       runCommand name { } ''
@@ -24,7 +24,7 @@ let
   };
 in
 rustPlatform.buildRustPackage {
-  pname = "herdr";
+  pname = "shuvr";
   version = manifest.package.version;
 
   src = lib.fileset.toSource {
@@ -42,8 +42,8 @@ rustPlatform.buildRustPackage {
     );
   };
 
-  cargoHash = "sha256-YseT5O69ld88SoZYPgMR/qz7djfKCdyuJkOGkHdv97A=";
-  cargoDepsName = "herdr";
+  cargoHash = "sha256-7AhcspMn5TJ4LAqPu5d62GPk9pwIndy10J13+iwtqqc=";
+  cargoDepsName = "shuvr";
 
   nativeBuildInputs = [
     git
@@ -69,9 +69,9 @@ rustPlatform.buildRustPackage {
 
   meta = {
     description = "Terminal workspace manager for AI coding agents";
-    homepage = "https://herdr.dev";
+    homepage = "https://github.com/shuv1337/shuvr";
     license = lib.licenses.agpl3Plus;
-    mainProgram = "herdr";
+    mainProgram = "shuvr";
     platforms = lib.platforms.linux ++ lib.platforms.darwin;
   };
 }

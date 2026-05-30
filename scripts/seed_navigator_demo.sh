@@ -5,13 +5,13 @@ usage() {
   cat <<'USAGE'
 usage: scripts/seed_navigator_demo.sh [--allow-main]
 
-Seeds a running herdr server with navigator demo workspaces, tabs, panes,
+Seeds a running shuvr server with navigator demo workspaces, tabs, panes,
 and fake agent states for recording the session navigator.
 
 Environment:
-  HERDR_NAV_SOCKET_PATH  API socket to target. Defaults to $HOME/.config/herdr-dev/herdr.sock.
-  HERDR_NAV_CWD          Workspace cwd for created panes. Defaults to the repo root.
-  HERDR_NAV_BIN          Herdr binary to call. Defaults to cargo run from the repo.
+  SHUVR_NAV_SOCKET_PATH  API socket to target. Defaults to $HOME/.config/shuvr-dev/shuvr.sock.
+  SHUVR_NAV_CWD          Workspace cwd for created panes. Defaults to the repo root.
+  SHUVR_NAV_BIN          Shuvr binary to call. Defaults to cargo run from the repo.
 USAGE
 }
 
@@ -36,28 +36,28 @@ done
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
-workspace_cwd="${HERDR_NAV_CWD:-$repo_dir}"
+workspace_cwd="${SHUVR_NAV_CWD:-$repo_dir}"
 config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
-dev_socket="$config_home/herdr-dev/herdr.sock"
-main_socket="$config_home/herdr/herdr.sock"
-export HERDR_SOCKET_PATH="${HERDR_NAV_SOCKET_PATH:-$dev_socket}"
+dev_socket="$config_home/shuvr-dev/shuvr.sock"
+main_socket="$config_home/shuvr/shuvr.sock"
+export SHUVR_SOCKET_PATH="${SHUVR_NAV_SOCKET_PATH:-$dev_socket}"
 
-if [[ "$allow_main" != 1 && "$HERDR_SOCKET_PATH" == "$main_socket" ]]; then
-  echo "refusing to seed main herdr session: $HERDR_SOCKET_PATH" >&2
-  echo "use HERDR_NAV_SOCKET_PATH for a dev socket, or pass --allow-main intentionally" >&2
+if [[ "$allow_main" != 1 && "$SHUVR_SOCKET_PATH" == "$main_socket" ]]; then
+  echo "refusing to seed main shuvr session: $SHUVR_SOCKET_PATH" >&2
+  echo "use SHUVR_NAV_SOCKET_PATH for a dev socket, or pass --allow-main intentionally" >&2
   exit 1
 fi
 
-if [[ ! -S "$HERDR_SOCKET_PATH" ]]; then
-  echo "herdr socket not found: $HERDR_SOCKET_PATH" >&2
-  echo "start a dev server first, or set HERDR_NAV_SOCKET_PATH" >&2
+if [[ ! -S "$SHUVR_SOCKET_PATH" ]]; then
+  echo "shuvr socket not found: $SHUVR_SOCKET_PATH" >&2
+  echo "start a dev server first, or set SHUVR_NAV_SOCKET_PATH" >&2
   exit 1
 fi
 
 cd "$repo_dir"
 
-if [[ -n "${HERDR_NAV_BIN:-}" ]]; then
-  run() { "$HERDR_NAV_BIN" "$@"; }
+if [[ -n "${SHUVR_NAV_BIN:-}" ]]; then
+  run() { "$SHUVR_NAV_BIN" "$@"; }
 else
   run() { cargo run --quiet -- "$@"; }
 fi
@@ -155,7 +155,7 @@ for item in "${done_panes[@]}"; do
 done
 
 cat <<EOF
-Seeded navigator demo data via $HERDR_SOCKET_PATH
+Seeded navigator demo data via $SHUVR_SOCKET_PATH
 
 Workspaces:
   $API_WS api     agents: blocked codex, working claude, idle shell; logs: working deploy

@@ -13,7 +13,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Check if contributor is approved
-        uses: actions/github-script@v9
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         with:
           script: |
             const prAuthor = context.payload.pull_request.user.login;
@@ -104,7 +104,7 @@ jobs:
               '',
               'We ask new contributors to open an issue first before submitting a PR. This helps us discuss the approach and avoid wasted effort.',
               '',
-              'Herdr is opinionated about how it should look, feel, and work. If your change affects UI, behavior, interaction patterns, or product direction, discuss it in an issue first.',
+              'Shuvr is opinionated about how it should look, feel, and work. If your change affects UI, behavior, interaction patterns, or product direction, discuss it in an issue first.',
               '',
               '**Next steps:**',
               '1. Open an issue describing what you want to change and why',

@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -24,7 +24,7 @@ jobs:
       - name: Close issues referenced by pushed commits
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.KANGAL_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SHUVR_GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -62,8 +62,8 @@ jobs:
               || gh api "repos/${GITHUB_REPOSITORY}/labels/${NEXT_RELEASE_LABEL}" >/dev/null
           fi
 
-          PENDING_COMMENT_MARKER="<!-- herdr:pending-release -->"
-          PENDING_COMMENT="${PENDING_COMMENT_MARKER}"$'\n'"Implemented on master and queued for the next release. This is not available in a published Herdr release yet."
+          PENDING_COMMENT_MARKER="<!-- shuvr:pending-release -->"
+          PENDING_COMMENT="${PENDING_COMMENT_MARKER}"$'\n'"Implemented on master and queued for the next release. This is not available in a published Shuvr release yet."
 
           issue_has_comment_marker() {
             local issue="$1"

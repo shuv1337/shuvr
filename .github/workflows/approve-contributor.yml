@@ -6,22 +6,22 @@ on:
 
 jobs:
   approve:
-    if: ${{ !github.event.issue.pull_request && github.event.comment.user.login != 'kangal-bot' }}
+    if: ${{ !github.event.issue.pull_request && github.event.comment.user.login != 'shuvr-bot' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Add contributor to approved list
         id: update
-        uses: actions/github-script@v9
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         with:
-          github-token: ${{ secrets.KANGAL_GITHUB_TOKEN }}
+          github-token: ${{ secrets.SHUVR_GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
 
@@ -81,19 +81,19 @@ jobs:
       - name: Commit and push
         if: steps.update.outputs.status == 'added'
         env:
-          KANGAL_GITHUB_TOKEN: ${{ secrets.KANGAL_GITHUB_TOKEN }}
+          SHUVR_GITHUB_TOKEN: ${{ secrets.SHUVR_GITHUB_TOKEN }}
         run: |
-          git config user.name "kangal-bot"
-          git config user.email "285672167+kangal-bot@users.noreply.github.com"
+          git config user.name "shuvr-bot"
+          git config user.email "0+shuvr-bot@users.noreply.github.com"
           git add .github/APPROVED_CONTRIBUTORS
           git diff --staged --quiet || git commit -m "chore: approve contributor ${{ github.event.issue.user.login }}"
-          git push "https://x-access-token:${KANGAL_GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:${{ github.event.repository.default_branch }}
+          git push "https://x-access-token:${SHUVR_GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:${{ github.event.repository.default_branch }}
 
       - name: Comment on issue
         if: steps.update.outputs.status == 'added'
-        uses: actions/github-script@v9
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         with:
-          github-token: ${{ secrets.KANGAL_GITHUB_TOKEN }}
+          github-token: ${{ secrets.SHUVR_GITHUB_TOKEN }}
           script: |
             const issueAuthor = context.payload.issue.user.login;
             await github.rest.issues.createComment({

@@ -1,5 +1,5 @@
 {
-  description = "herdr — terminal workspace manager for AI coding agents";
+  description = "shuvr — terminal workspace manager for AI coding agents";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -23,25 +23,25 @@
         system:
         let
           pkgs = pkgsFor system;
-          herdr = pkgs.callPackage ./nix/package.nix { };
+          shuvr = pkgs.callPackage ./nix/package.nix { };
         in
         {
-          inherit herdr;
-          default = herdr;
+          inherit shuvr;
+          default = shuvr;
         }
       );
 
       apps = forAllSystems (system: {
         default = {
           type = "app";
-          program = "${self.packages.${system}.default}/bin/herdr";
-          meta.description = "Run Herdr";
+          program = "${self.packages.${system}.default}/bin/shuvr";
+          meta.description = "Run Shuvr";
         };
       });
 
       checks = forAllSystems (system: {
-        herdr = self.packages.${system}.default;
-        default = self.checks.${system}.herdr;
+        shuvr = self.packages.${system}.default;
+        default = self.checks.${system}.shuvr;
       });
 
       devShells = forAllSystems (
@@ -51,7 +51,7 @@
         in
         {
           default = pkgs.mkShell {
-            name = "herdr-dev";
+            name = "shuvr-dev";
             packages = with pkgs; [
               cargo
               cargo-nextest
@@ -76,7 +76,7 @@
       formatter = forAllSystems (system: (pkgsFor system).nixfmt);
 
       overlays.default = final: _prev: {
-        herdr = final.callPackage ./nix/package.nix { };
+        shuvr = final.callPackage ./nix/package.nix { };
       };
     };
 }

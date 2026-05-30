@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Sync intends-to-pr label
-        uses: actions/github-script@v9
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         with:
           script: |
             const label = process.env.INTENDS_TO_PR_LABEL;
