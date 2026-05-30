@@ -11,11 +11,13 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-DEFAULT_LIVE_MANIFEST_URL = "https://herdr.dev/latest.json"
+DEFAULT_LIVE_MANIFEST_URL = (
+    "https://raw.githubusercontent.com/shuv1337/shuvr/master/website/latest.json"
+)
 
 SECTION_RE = re.compile(r"^##\s+(?:\[(?P<bracketed>[^\]]+)\]|(?P<plain>.+?))\s*$", re.MULTILINE)
 VERSION_WITH_DATE_RE = re.compile(r"^(?P<version>.+?)\s+-\s+\d{4}-\d{2}-\d{2}$")
-DEFAULT_RELEASE_REPO = "ogulcancelik/herdr"
+DEFAULT_RELEASE_REPO = "shuv1337/shuvr"
 DEFAULT_LATEST_JSON_PATH = Path("website/latest.json")
 DEFAULT_PRODUCT_ANNOUNCEMENT_PATH = Path("docs/next/product-announcement.json")
 PROTOCOL_SOURCE_PATH = Path("src/protocol/wire.rs")
@@ -25,7 +27,7 @@ ASSET_TARGETS = (
     "macos-x86_64",
     "macos-aarch64",
 )
-EXPECTED_ASSET_NAMES = {target: f"herdr-{target}" for target in ASSET_TARGETS}
+EXPECTED_ASSET_NAMES = {target: f"shuvr-{target}" for target in ASSET_TARGETS}
 
 
 @dataclass(frozen=True)
@@ -186,11 +188,38 @@ def normalize_assets(value: Any, label: str) -> dict[str, str]:
     return normalized_assets
 
 
+def normalize_checksums(value: Any, label: str) -> dict[str, str]:
+    if not isinstance(value, dict):
+        raise ChangelogError(f"{label} must be an object")
+
+    missing_targets = [target for target in ASSET_TARGETS if target not in value]
+    if missing_targets:
+        raise ChangelogError(f"{label} is missing checksum for {', '.join(missing_targets)}")
+
+    normalized_checksums: dict[str, str] = {}
+    for target in ASSET_TARGETS:
+        checksum = value.get(target)
+        if not isinstance(checksum, str) or not checksum.strip():
+            raise ChangelogError(f"{label} is missing checksum for {target}")
+        normalized_checksums[target] = normalize_checksum(checksum, f"{label}.{target}")
+    return normalized_checksums
+
+
+def normalize_checksum(value: str, label: str) -> str:
+    checksum = value.strip().lower()
+    if not checksum.startswith("sha256:"):
+        raise ChangelogError(f"{label} must use sha256:<hex> format")
+    digest = checksum.removeprefix("sha256:")
+    if len(digest) != 64 or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise ChangelogError(f"{label} must be a 64-character sha256 hex digest")
+    return f"sha256:{digest}"
+
+
 def normalize_release_metadata(value: Any, label: str, version: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ChangelogError(f"{label} must be an object")
 
-    allowed_keys = {"notes", "announcement", "assets", "protocol"}
+    allowed_keys = {"notes", "announcement", "assets", "checksums", "protocol"}
     extra_keys = sorted(set(value) - allowed_keys)
     if extra_keys:
         raise ChangelogError(f"{label} has unsupported field(s): {', '.join(extra_keys)}")
@@ -213,6 +242,8 @@ def normalize_release_metadata(value: Any, label: str, version: str) -> dict[str
         metadata["assets"] = normalize_assets(value.get("assets"), f"{label}.assets")
     else:
         metadata["assets"] = default_release_assets(version)
+    if "checksums" in value:
+        metadata["checksums"] = normalize_checksums(value.get("checksums"), f"{label}.checksums")
     announcement = normalize_announcement(value.get("announcement"), label)
     if announcement is not None:
         metadata["announcement"] = announcement
@@ -243,6 +274,7 @@ def build_latest_json(
     version: str,
     notes: str,
     assets: dict[str, str],
+    checksums: dict[str, str] | None = None,
     protocol: int | None = None,
     announcement: dict[str, str] | None = None,
     releases: dict[str, Any] | None = None,
@@ -256,12 +288,16 @@ def build_latest_json(
         protocol = read_protocol_version()
 
     ordered_assets = normalize_assets(assets, "assets")
+    if checksums is None:
+        raise ChangelogError("checksums are required for every release asset")
+    ordered_checksums = normalize_checksums(checksums, "checksums")
     normalized_announcement = normalize_announcement(announcement, "root")
     archived_releases = normalize_releases(releases)
     current_metadata: dict[str, Any] = {
         "notes": normalized_notes,
         "protocol": protocol,
         "assets": ordered_assets,
+        "checksums": ordered_checksums,
     }
     if normalized_announcement is not None:
         current_metadata["announcement"] = normalized_announcement
@@ -276,6 +312,7 @@ def build_latest_json(
         "protocol": protocol,
         "notes": normalized_notes,
         "assets": ordered_assets,
+        "checksums": ordered_checksums,
     }
     if normalized_announcement is not None:
         manifest["announcement"] = normalized_announcement
@@ -332,11 +369,20 @@ def manifest_from_release_payload(
             raise ChangelogError(f"GitHub release asset {asset_name} is missing a download URL")
         manifest_assets[target] = url
 
+    manifest_checksums: dict[str, str] = {}
+    for target, asset_name in EXPECTED_ASSET_NAMES.items():
+        asset = release_assets[asset_name]
+        digest = str(asset.get("digest") or "").strip().lower()
+        if not digest:
+            raise ChangelogError(f"GitHub release asset {asset_name} is missing a digest")
+        manifest_checksums[target] = normalize_checksum(digest, f"{asset_name} digest")
+
     return {
         "version": normalized_version,
         "protocol": protocol if protocol is not None else read_protocol_version(),
         "notes": notes,
         "assets": manifest_assets,
+        "checksums": manifest_checksums,
     }
 
 
@@ -358,13 +404,17 @@ def canonicalize_manifest(manifest: dict[str, Any], label: str) -> dict[str, Any
         raise ChangelogError(f"{label} is missing an assets object")
 
     normalized_assets = normalize_assets(assets, f"{label} assets")
-
-    return {
+    canonical = {
         "version": normalize_version(version),
         "protocol": protocol,
         "notes": notes.strip(),
         "assets": normalized_assets,
     }
+    checksums = manifest.get("checksums")
+    if not isinstance(checksums, dict):
+        raise ChangelogError(f"{label} is missing a checksums object")
+    canonical["checksums"] = normalize_checksums(checksums, f"{label} checksums")
+    return canonical
 
 
 def ensure_manifest_matches_expected(
@@ -390,6 +440,10 @@ def ensure_current_release_assets_are_mirrored(manifest: dict[str, Any], label: 
     if metadata.get("assets") != canonical["assets"]:
         raise ChangelogError(
             f"{label} releases.{canonical['version']}.assets must match top-level assets"
+        )
+    if "checksums" in canonical and metadata.get("checksums") != canonical["checksums"]:
+        raise ChangelogError(
+            f"{label} releases.{canonical['version']}.checksums must match top-level checksums"
         )
 
 
@@ -431,6 +485,9 @@ def archived_releases_from_current_manifest(manifest: dict[str, Any]) -> dict[st
             metadata["assets"] = normalize_assets(assets, "current root assets")
         else:
             metadata["assets"] = default_release_assets(normalized_version)
+        checksums = manifest.get("checksums")
+        if isinstance(checksums, dict):
+            metadata["checksums"] = normalize_checksums(checksums, "current root checksums")
         announcement = normalize_announcement(manifest.get("announcement"), "current root")
         if announcement is not None:
             metadata["announcement"] = announcement
@@ -592,6 +649,7 @@ def cmd_sync_latest_json(args: argparse.Namespace) -> int:
         version,
         str(new_manifest["notes"]),
         dict(new_manifest["assets"]),
+        dict(new_manifest["checksums"]),
         protocol=int(new_manifest["protocol"]),
         announcement=announcement,
         releases=archived_releases_from_current_manifest(current_manifest),

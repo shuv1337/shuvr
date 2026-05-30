@@ -24,6 +24,14 @@ from scripts.changelog import (
 )
 
 
+SAMPLE_CHECKSUMS = {
+    "linux-x86_64": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "linux-aarch64": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "macos-x86_64": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "macos-aarch64": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+}
+
+
 class ChangelogScriptTests(unittest.TestCase):
     def test_prepare_release_moves_unreleased_into_versioned_section(self) -> None:
         original = """# Changelog\n\n## Unreleased\n\n### Fixed\n- Smoothed Claude flapping.\n\n## [0.1.0] - 2026-03-27\n\n### Added\n- Initial release.\n"""
@@ -55,6 +63,7 @@ class ChangelogScriptTests(unittest.TestCase):
                 "0.1.1",
                 "\n### Fixed\n- One\n\n",
                 default_release_assets("0.1.1"),
+                SAMPLE_CHECKSUMS,
             )
         )
 
@@ -67,6 +76,7 @@ class ChangelogScriptTests(unittest.TestCase):
                 "v0.1.1",
                 "### Fixed\n- Smoothed Claude flapping.\n",
                 default_release_assets("0.1.1"),
+                SAMPLE_CHECKSUMS,
             )
         )
 
@@ -76,13 +86,23 @@ class ChangelogScriptTests(unittest.TestCase):
         self.assertEqual(
             manifest["assets"],
             {
-                "linux-x86_64": "https://github.com/ogulcancelik/herdr/releases/download/v0.1.1/herdr-linux-x86_64",
-                "linux-aarch64": "https://github.com/ogulcancelik/herdr/releases/download/v0.1.1/herdr-linux-aarch64",
-                "macos-x86_64": "https://github.com/ogulcancelik/herdr/releases/download/v0.1.1/herdr-macos-x86_64",
-                "macos-aarch64": "https://github.com/ogulcancelik/herdr/releases/download/v0.1.1/herdr-macos-aarch64",
+                "linux-x86_64": "https://github.com/shuv1337/shuvr/releases/download/v0.1.1/shuvr-linux-x86_64",
+                "linux-aarch64": "https://github.com/shuv1337/shuvr/releases/download/v0.1.1/shuvr-linux-aarch64",
+                "macos-x86_64": "https://github.com/shuv1337/shuvr/releases/download/v0.1.1/shuvr-macos-x86_64",
+                "macos-aarch64": "https://github.com/shuv1337/shuvr/releases/download/v0.1.1/shuvr-macos-aarch64",
             },
         )
         self.assertEqual(manifest["releases"]["0.1.1"]["assets"], manifest["assets"])
+        self.assertEqual(manifest["checksums"], SAMPLE_CHECKSUMS)
+        self.assertEqual(manifest["releases"]["0.1.1"]["checksums"], SAMPLE_CHECKSUMS)
+
+    def test_build_latest_json_requires_checksums(self) -> None:
+        with self.assertRaisesRegex(ChangelogError, "checksums are required"):
+            build_latest_json(
+                "0.1.1",
+                "### Fixed\n- One",
+                default_release_assets("0.1.1"),
+            )
 
     def test_build_latest_json_embeds_product_announcement(self) -> None:
         manifest = json.loads(
@@ -90,6 +110,7 @@ class ChangelogScriptTests(unittest.TestCase):
                 "0.1.1",
                 "### Fixed\n- One",
                 default_release_assets("0.1.1"),
+                SAMPLE_CHECKSUMS,
                 announcement={"id": "keybinding-v2", "title": "Keybind Refactor", "body": "body"},
             )
         )
@@ -109,6 +130,7 @@ class ChangelogScriptTests(unittest.TestCase):
                 "0.1.2",
                 "### Fixed\n- Two",
                 default_release_assets("0.1.2"),
+                SAMPLE_CHECKSUMS,
                 releases={"0.1.1": {"notes": "### Fixed\n- One"}},
             )
         )
@@ -117,6 +139,7 @@ class ChangelogScriptTests(unittest.TestCase):
         self.assertEqual(manifest["releases"]["0.1.2"]["notes"], "### Fixed\n- Two")
         self.assertEqual(manifest["releases"]["0.1.2"]["protocol"], read_protocol_version())
         self.assertEqual(manifest["releases"]["0.1.2"]["assets"], default_release_assets("0.1.2"))
+        self.assertEqual(manifest["releases"]["0.1.2"]["checksums"], SAMPLE_CHECKSUMS)
         self.assertEqual(manifest["releases"]["0.1.1"]["notes"], "### Fixed\n- One")
         self.assertEqual(manifest["releases"]["0.1.1"]["assets"], default_release_assets("0.1.1"))
 
@@ -127,6 +150,7 @@ class ChangelogScriptTests(unittest.TestCase):
                 "0.1.2",
                 "### Fixed\n- Two",
                 default_release_assets("0.1.2"),
+                SAMPLE_CHECKSUMS,
                 releases={"0.1.1": {"notes": "### Fixed\n- One", "assets": assets}},
             )
         )
@@ -139,6 +163,7 @@ class ChangelogScriptTests(unittest.TestCase):
                 "0.1.2",
                 "### Fixed\n- Two",
                 default_release_assets("0.1.2"),
+                SAMPLE_CHECKSUMS,
                 releases={"0.1.1": {"notes": "### Fixed\n- One", "protocol": 7}},
             )
         )
@@ -151,6 +176,7 @@ class ChangelogScriptTests(unittest.TestCase):
                 "0.1.2",
                 "### Fixed\n- Two",
                 default_release_assets("0.1.2"),
+                SAMPLE_CHECKSUMS,
                 releases={
                     "0.1.1": {
                         "notes": "### Breaking Changes\n- The client/server protocol is now version 7."
@@ -251,7 +277,7 @@ class ChangelogScriptTests(unittest.TestCase):
             path.unlink(missing_ok=True)
 
     def test_load_product_announcement_rejects_missing_file(self) -> None:
-        path = Path(tempfile.gettempdir()) / "herdr-missing-product-announcement.json"
+        path = Path(tempfile.gettempdir()) / "shuvr-missing-product-announcement.json"
         path.unlink(missing_ok=True)
         with self.assertRaisesRegex(ChangelogError, "file not found"):
             load_product_announcement(path)
@@ -288,10 +314,10 @@ class ChangelogScriptTests(unittest.TestCase):
                 "isPrerelease": False,
                 "body": "### Fixed\n- One\n",
                 "assets": [
-                    {"name": "herdr-linux-x86_64", "url": "https://example.com/linux-x86_64"},
-                    {"name": "herdr-linux-aarch64", "url": "https://example.com/linux-aarch64"},
-                    {"name": "herdr-macos-x86_64", "url": "https://example.com/macos-x86_64"},
-                    {"name": "herdr-macos-aarch64", "url": "https://example.com/macos-aarch64"},
+                    {"name": "shuvr-linux-x86_64", "url": "https://example.com/linux-x86_64", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"},
+                    {"name": "shuvr-linux-aarch64", "url": "https://example.com/linux-aarch64", "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"},
+                    {"name": "shuvr-macos-x86_64", "url": "https://example.com/macos-x86_64", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"},
+                    {"name": "shuvr-macos-aarch64", "url": "https://example.com/macos-aarch64", "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"},
                 ],
             },
             "0.1.1",
@@ -309,6 +335,12 @@ class ChangelogScriptTests(unittest.TestCase):
                     "macos-x86_64": "https://example.com/macos-x86_64",
                     "macos-aarch64": "https://example.com/macos-aarch64",
                 },
+                "checksums": {
+                    "linux-x86_64": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+                    "linux-aarch64": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+                    "macos-x86_64": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+                    "macos-aarch64": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+                },
             },
         )
 
@@ -320,10 +352,10 @@ class ChangelogScriptTests(unittest.TestCase):
                 "isPrerelease": False,
                 "body": "### Fixed\n- One\n",
                 "assets": [
-                    {"name": "herdr-linux-x86_64", "url": "https://example.com/linux-x86_64"},
-                    {"name": "herdr-linux-aarch64", "url": "https://example.com/linux-aarch64"},
-                    {"name": "herdr-macos-x86_64", "url": "https://example.com/macos-x86_64"},
-                    {"name": "herdr-macos-aarch64", "url": "https://example.com/macos-aarch64"},
+                    {"name": "shuvr-linux-x86_64", "url": "https://example.com/linux-x86_64", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"},
+                    {"name": "shuvr-linux-aarch64", "url": "https://example.com/linux-aarch64", "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"},
+                    {"name": "shuvr-macos-x86_64", "url": "https://example.com/macos-x86_64", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"},
+                    {"name": "shuvr-macos-aarch64", "url": "https://example.com/macos-aarch64", "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"},
                 ],
             },
             "0.1.1",
@@ -333,7 +365,7 @@ class ChangelogScriptTests(unittest.TestCase):
         self.assertEqual(manifest["protocol"], 42)
 
     def test_manifest_from_release_payload_rejects_missing_asset(self) -> None:
-        with self.assertRaisesRegex(ChangelogError, "missing asset herdr-macos-aarch64"):
+        with self.assertRaisesRegex(ChangelogError, "missing asset shuvr-macos-aarch64"):
             manifest_from_release_payload(
                 {
                     "tagName": "v0.1.1",
@@ -341,9 +373,9 @@ class ChangelogScriptTests(unittest.TestCase):
                     "isPrerelease": False,
                     "body": "### Fixed\n- One\n",
                     "assets": [
-                        {"name": "herdr-linux-x86_64", "url": "https://example.com/linux-x86_64"},
-                        {"name": "herdr-linux-aarch64", "url": "https://example.com/linux-aarch64"},
-                        {"name": "herdr-macos-x86_64", "url": "https://example.com/macos-x86_64"},
+                        {"name": "shuvr-linux-x86_64", "url": "https://example.com/linux-x86_64", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"},
+                        {"name": "shuvr-linux-aarch64", "url": "https://example.com/linux-aarch64", "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"},
+                        {"name": "shuvr-macos-x86_64", "url": "https://example.com/macos-x86_64", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"},
                     ],
                 },
                 "0.1.1",
@@ -386,6 +418,7 @@ class ChangelogScriptTests(unittest.TestCase):
                 "macos-x86_64": "https://example.com/macos-x86_64",
                 "macos-aarch64": "https://example.com/macos-aarch64",
             },
+            "checksums": SAMPLE_CHECKSUMS,
         }
         expected = {
             "version": "0.1.1",
@@ -397,6 +430,7 @@ class ChangelogScriptTests(unittest.TestCase):
                 "macos-x86_64": "https://example.com/macos-x86_64",
                 "macos-aarch64": "https://example.com/macos-aarch64",
             },
+            "checksums": SAMPLE_CHECKSUMS,
         }
 
         canonical = ensure_manifest_matches_expected(actual, expected, "test manifest")
@@ -410,10 +444,12 @@ class ChangelogScriptTests(unittest.TestCase):
                 "protocol": read_protocol_version(),
                 "notes": "### Fixed\n- One",
                 "assets": assets,
+                "checksums": SAMPLE_CHECKSUMS,
                 "releases": {
                     "0.1.1": {
                         "notes": "### Fixed\n- One",
                         "assets": assets,
+                        "checksums": SAMPLE_CHECKSUMS,
                     }
                 },
             },
@@ -428,10 +464,12 @@ class ChangelogScriptTests(unittest.TestCase):
                     "protocol": read_protocol_version(),
                     "notes": "### Fixed\n- One",
                     "assets": default_release_assets("0.1.1"),
+                    "checksums": SAMPLE_CHECKSUMS,
                     "releases": {
                         "0.1.1": {
                             "notes": "### Fixed\n- One",
                             "assets": default_release_assets("0.1.0"),
+                            "checksums": SAMPLE_CHECKSUMS,
                         }
                     },
                 },
@@ -451,6 +489,7 @@ class ChangelogScriptTests(unittest.TestCase):
                         "macos-x86_64": "https://example.com/macos-x86_64",
                         "macos-aarch64": "https://example.com/macos-aarch64",
                     },
+                    "checksums": SAMPLE_CHECKSUMS,
                 },
                 {
                     "version": "0.1.1",
@@ -462,6 +501,7 @@ class ChangelogScriptTests(unittest.TestCase):
                         "macos-x86_64": "https://example.com/macos-x86_64",
                         "macos-aarch64": "https://example.com/macos-aarch64",
                     },
+                    "checksums": SAMPLE_CHECKSUMS,
                 },
                 "test manifest",
             )
@@ -483,12 +523,14 @@ class ChangelogScriptTests(unittest.TestCase):
             "protocol": read_protocol_version() + 1,
             "notes": "### Fixed\n- One",
             "assets": default_release_assets("0.1.1"),
+            "checksums": SAMPLE_CHECKSUMS,
         }
         expected = {
             "version": "0.1.1",
             "protocol": read_protocol_version(),
             "notes": "### Fixed\n- One",
             "assets": default_release_assets("0.1.1"),
+            "checksums": SAMPLE_CHECKSUMS,
         }
 
         with self.assertRaisesRegex(ChangelogError, "does not match"):

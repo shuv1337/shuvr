@@ -1,7 +1,7 @@
 //! Self-update mechanism.
 //!
-//! Checks the hosted herdr.dev update manifest for newer versions.
-//! Manual `herdr update` downloads and installs the binary.
+//! Checks the hosted github.com/shuv1337/shuvr update manifest for newer versions.
+//! Manual `shuvr update` downloads and installs the binary.
 //! Background checks only surface availability and release notes.
 //! Uses `curl` as a subprocess for HTTP — no additional Rust HTTP dependencies.
 //! JSON parsing uses serde_json (already in deps for persistence).
@@ -16,21 +16,23 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Deserializer, Serialize};
+use sha2::{Digest, Sha256};
 
-const UPDATE_MANIFEST_URL: &str = "https://herdr.dev/latest.json";
-const HOMEBREW_FORMULA_API_URL: &str = "https://formulae.brew.sh/api/formula/herdr.json";
-const HERDR_UPDATE_COMMAND: &str = "herdr update";
-const HOMEBREW_UPDATE_COMMAND: &str = "brew update && brew upgrade herdr";
+const UPDATE_MANIFEST_URL: &str =
+    "https://raw.githubusercontent.com/shuv1337/shuvr/master/website/latest.json";
+const HOMEBREW_FORMULA_API_URL: &str = "https://formulae.brew.sh/api/formula/shuvr.json";
+const SHUVR_UPDATE_COMMAND: &str = "shuvr update";
+const HOMEBREW_UPDATE_COMMAND: &str = "brew update && brew upgrade shuvr";
 const NIX_UPDATE_COMMAND: &str = "update through Nix";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
-const FAKE_UPDATE_VERSION_ENV: &str = "HERDR_FAKE_UPDATE_VERSION";
-const FAKE_UPDATE_NOTES_VERSION_ENV: &str = "HERDR_FAKE_UPDATE_NOTES_VERSION";
+const FAKE_UPDATE_VERSION_ENV: &str = "SHUVR_FAKE_UPDATE_VERSION";
+const FAKE_UPDATE_NOTES_VERSION_ENV: &str = "SHUVR_FAKE_UPDATE_NOTES_VERSION";
 const DEFAULT_FAKE_UPDATE_NOTES_VERSION: &str = "0.3.0";
 const SERVER_STOP_RESPONSE_TIMEOUT: Duration = Duration::from_secs(5);
 const SERVER_HANDOFF_REQUEST_TIMEOUT: Duration = Duration::from_secs(240);
 const SERVER_HANDOFF_CONFIRM_TIMEOUT: Duration = Duration::from_secs(30);
 const SERVER_SHUTDOWN_POLL_INTERVAL: Duration = Duration::from_millis(100);
-const STAR_PROMPT_REPO: &str = "ogulcancelik/herdr";
+const STAR_PROMPT_REPO: &str = "shuv1337/shuvr";
 const STAR_PROMPT_STATE_FILE: &str = "github-star-prompt.json";
 const STAR_PROMPT_MAX_PROMPTS: u32 = 5;
 const STAR_PROMPT_INTERVAL_UPDATES: [u32; 4] = [2, 3, 5, 7];
@@ -100,6 +102,8 @@ struct UpdateManifest {
     protocol: Option<u32>,
     notes: String,
     assets: BTreeMap<String, String>,
+    #[serde(default)]
+    checksums: BTreeMap<String, String>,
     announcement: Option<serde_json::Value>,
     #[serde(default, deserialize_with = "deserialize_manifest_releases")]
     releases: BTreeMap<String, serde_json::Value>,
@@ -172,6 +176,7 @@ struct ReleaseInfo {
     version: Version,
     target_protocol: Option<u32>,
     download_url: String,
+    checksum: String,
     notes_body: String,
 }
 
@@ -238,14 +243,22 @@ fn release_info_from_manifest(manifest: &UpdateManifest) -> Result<Option<Releas
     }
 
     let (os, arch) = platform_target();
+    let target = format!("{os}-{arch}");
     let download_url = manifest
         .download_url_for(os, arch)
-        .ok_or_else(|| format!("no binary for {os}-{arch} in update manifest"))?;
+        .ok_or_else(|| format!("no binary for {target} in update manifest"))?;
+    let checksum = manifest
+        .checksums
+        .get(&target)
+        .ok_or_else(|| format!("no checksum for {target} in update manifest"))?
+        .clone();
+    validate_sha256_checksum(&checksum)?;
 
     Ok(Some(ReleaseInfo {
         version: latest,
         target_protocol: manifest.protocol,
         download_url,
+        checksum,
         notes_body,
     }))
 }
@@ -336,7 +349,7 @@ fn download_update(release: &ReleaseInfo) -> Result<DownloadedUpdate, String> {
     let parent = current_exe.parent().ok_or("can't find binary directory")?;
 
     // Check write permissions early
-    let test_path = parent.join(".herdr-write-test");
+    let test_path = parent.join(".shuvr-write-test");
     if let Err(e) = fs::write(&test_path, b"") {
         let _ = fs::remove_file(&test_path);
         return Err(format!(
@@ -348,7 +361,7 @@ fn download_update(release: &ReleaseInfo) -> Result<DownloadedUpdate, String> {
     let _ = fs::remove_file(&test_path);
 
     // Unique temp file (avoids races with concurrent instances)
-    let tmp_path = parent.join(format!(".herdr-update-{}.tmp", std::process::id()));
+    let tmp_path = parent.join(format!(".shuvr-update-{}.tmp", std::process::id()));
 
     // Download the exact asset URL (pinned to the release we checked)
     let status = Command::new("curl")
@@ -362,6 +375,9 @@ fn download_update(release: &ReleaseInfo) -> Result<DownloadedUpdate, String> {
         let _ = fs::remove_file(&tmp_path);
         return Err("download failed".into());
     }
+    verify_file_sha256(&tmp_path, &release.checksum).inspect_err(|_| {
+        let _ = fs::remove_file(&tmp_path);
+    })?;
 
     // Make executable
     #[cfg(unix)]
@@ -377,6 +393,33 @@ fn download_update(release: &ReleaseInfo) -> Result<DownloadedUpdate, String> {
         current_exe,
         tmp_path: Some(tmp_path),
     })
+}
+
+fn validate_sha256_checksum(checksum: &str) -> Result<String, String> {
+    let Some(hex) = checksum.strip_prefix("sha256:") else {
+        return Err("checksum must use sha256:<hex> format".to_string());
+    };
+    if hex.len() != 64 || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("checksum must be a 64-character hex sha256 digest".to_string());
+    }
+    Ok(hex.to_ascii_lowercase())
+}
+
+fn file_sha256(path: &Path) -> Result<String, String> {
+    let bytes = fs::read(path).map_err(|err| format!("failed to read downloaded binary: {err}"))?;
+    let digest = Sha256::digest(&bytes);
+    Ok(format!("{digest:x}"))
+}
+
+fn verify_file_sha256(path: &Path, expected: &str) -> Result<(), String> {
+    let expected = validate_sha256_checksum(expected)?;
+    let actual = file_sha256(path)?;
+    if actual != expected {
+        return Err(format!(
+            "downloaded binary checksum mismatch: expected sha256:{expected}, got sha256:{actual}"
+        ));
+    }
+    Ok(())
 }
 
 fn install_downloaded_update(mut update: DownloadedUpdate) -> Result<(), String> {
@@ -400,12 +443,12 @@ fn install_downloaded_update(mut update: DownloadedUpdate) -> Result<(), String>
 // Upgrade flow helpers
 // ---------------------------------------------------------------------------
 
-fn running_inside_herdr_env(herdr_env: Option<&str>) -> bool {
-    herdr_env == Some(crate::HERDR_ENV_VALUE)
+fn running_inside_shuvr_env(shuvr_env: Option<&str>) -> bool {
+    shuvr_env == Some(crate::SHUVR_ENV_VALUE)
 }
 
-fn running_inside_herdr() -> bool {
-    running_inside_herdr_env(env::var(crate::HERDR_ENV_VAR).ok().as_deref())
+fn running_inside_shuvr() -> bool {
+    running_inside_shuvr_env(env::var(crate::SHUVR_ENV_VAR).ok().as_deref())
 }
 
 fn client_protocol_server_is_running_at(socket_path: &Path) -> bool {
@@ -542,7 +585,7 @@ fn plan_running_server_updates(
         )
         .map_err(|err| {
             format!(
-                "failed to read status for herdr target {} at {}: {err}. stop it with `{}` and run `herdr update` again",
+                "failed to read status for shuvr target {} at {}: {err}. stop it with `{}` and run `shuvr update` again",
                 target.label,
                 target.socket_path.display(),
                 target.stop_command
@@ -551,7 +594,7 @@ fn plan_running_server_updates(
             Some(server) => server,
             None if target.must_be_running => {
                 return Err(format!(
-                        "herdr target {} looked running, but its status API did not respond at {}. stop it with `{}` and run `herdr update` again",
+                        "shuvr target {} looked running, but its status API did not respond at {}. stop it with `{}` and run `shuvr update` again",
                     target.label,
                     target.socket_path.display(),
                     target.stop_command
@@ -559,7 +602,7 @@ fn plan_running_server_updates(
             }
             None if client_protocol_server_is_running_at(&target.client_socket_path) => {
                 return Err(format!(
-                    "herdr target {} has a client socket, but its status API did not respond at {}. stop it with `{}` and run `herdr update` again",
+                    "shuvr target {} has a client socket, but its status API did not respond at {}. stop it with `{}` and run `shuvr update` again",
                     target.label,
                     target.socket_path.display(),
                     target.stop_command
@@ -577,7 +620,7 @@ fn plan_running_server_updates(
 
     if plans.is_empty() && target_client_protocol_server_is_running()? {
         return Err(format!(
-            "a herdr server is listening, but its status API is unavailable; try `{}`, or stop the old server process manually, then run `herdr update` again",
+            "a shuvr server is listening, but its status API is unavailable; try `{}`, or stop the old server process manually, then run `shuvr update` again",
             crate::session::local_stop_command()
         ));
     }
@@ -616,7 +659,7 @@ fn running_update_targets() -> Result<Vec<RunningUpdateTarget>, String> {
             name: None,
             label: socket_path.display().to_string(),
             stop_command: format!(
-                "{}={} herdr server stop",
+                "{}={} shuvr server stop",
                 crate::api::SOCKET_PATH_ENV_VAR,
                 socket_path.display()
             ),
@@ -631,7 +674,7 @@ fn running_update_targets() -> Result<Vec<RunningUpdateTarget>, String> {
     }
 
     let sessions = crate::session::list_sessions()
-        .map_err(|err| format!("failed to list herdr sessions: {err}"))?;
+        .map_err(|err| format!("failed to list shuvr sessions: {err}"))?;
     Ok(sessions
         .into_iter()
         .map(|session| RunningUpdateTarget {
@@ -646,9 +689,9 @@ fn running_update_targets() -> Result<Vec<RunningUpdateTarget>, String> {
                 Some(&session.name)
             }),
             attach_command: Some(if session.default {
-                "herdr".to_string()
+                "shuvr".to_string()
             } else {
-                format!("herdr session attach {}", session.name)
+                format!("shuvr session attach {}", session.name)
             }),
             label: session.name.clone(),
             client_socket_path: crate::session::client_socket_path_for(if session.default {
@@ -670,7 +713,7 @@ fn target_client_protocol_server_is_running() -> Result<bool, String> {
     }
 
     let sessions = crate::session::list_sessions()
-        .map_err(|err| format!("failed to list herdr sessions: {err}"))?;
+        .map_err(|err| format!("failed to list shuvr sessions: {err}"))?;
     Ok(sessions.into_iter().any(|session| {
         let client_socket = crate::session::client_socket_path_for(if session.default {
             None
@@ -692,7 +735,7 @@ pub(crate) fn parse_self_update_args(args: &[String]) -> Result<SelfUpdateOption
         match arg.as_str() {
             "--handoff" => options.live_handoff = true,
             "--help" | "-h" => {
-                return Err("usage: herdr update [--handoff]".to_string());
+                return Err("usage: shuvr update [--handoff]".to_string());
             }
             _ => return Err(format!("unknown update option: {arg}")),
         }
@@ -706,13 +749,13 @@ fn prompt_to_stop_old_servers_before_update(
 ) -> Result<bool, String> {
     if !io::stdin().is_terminal() {
         return Err(
-            "one or more herdr targets must restart for this update; run `herdr update` from an interactive terminal, or stop those targets and run `herdr update` again"
+            "one or more shuvr targets must restart for this update; run `shuvr update` from an interactive terminal, or stop those targets and run `shuvr update` again"
                 .to_string(),
         );
     }
 
     eprintln!(
-        "these running herdr targets must restart to use v{}:",
+        "these running shuvr targets must restart to use v{}:",
         release.version
     );
     for plan in plans {
@@ -723,7 +766,7 @@ fn prompt_to_stop_old_servers_before_update(
             protocol_label(plan.server.protocol)
         );
     }
-    eprintln!("herdr can leave them running, or stop them after installing the update.");
+    eprintln!("shuvr can leave them running, or stop them after installing the update.");
     eprintln!("stopping them will exit their pane processes.");
 
     loop {
@@ -835,7 +878,7 @@ fn print_running_session_update_summary(
     release: &ReleaseInfo,
     options: SelfUpdateOptions,
 ) {
-    eprintln!("running herdr targets:");
+    eprintln!("running shuvr targets:");
     for plan in plans {
         if options.live_handoff {
             let capability = if server_supports_live_handoff(&plan.server) {
@@ -875,18 +918,18 @@ fn prompt_to_live_handoff_sessions_before_update(
     if !io::stdin().is_terminal() {
         if requires_live_handoff {
             return Err(format!(
-                "one or more herdr targets are running and updating to v{} requires live server handoff; run `herdr update` from an interactive terminal, or stop those targets and run `herdr update` again",
+                "one or more shuvr targets are running and updating to v{} requires live server handoff; run `shuvr update` from an interactive terminal, or stop those targets and run `shuvr update` again",
                 release.version
             ));
         }
         eprintln!(
-            "herdr targets are running. updating the binary will not affect them until they restart."
+            "shuvr targets are running. updating the binary will not affect them until they restart."
         );
         return Ok(false);
     }
 
     eprintln!(
-        "herdr can hand off {} running target{} to the new server so pane processes keep running.",
+        "shuvr can hand off {} running target{} to the new server so pane processes keep running.",
         plans.len(),
         if plans.len() == 1 { "" } else { "s" }
     );
@@ -982,7 +1025,7 @@ fn prompt_to_stop_old_server_after_failed_handoff(
         protocol_label(release.target_protocol)
     );
     eprintln!(
-        "you can keep using the old server, or stop it now so the next `herdr` start uses v{}.",
+        "you can keep using the old server, or stop it now so the next `shuvr` start uses v{}.",
         release.version
     );
     eprintln!("stopping the old server will exit its pane processes.");
@@ -1048,13 +1091,13 @@ fn recover_failed_live_handoff_for_update(
         FailedHandoffServerState::NoServerResponding => {
             if let Some(command) = plan.attach_command() {
                 eprintln!(
-                    "no herdr server is responding for session {}. the binary was updated; run `{command}` to start v{}.",
+                    "no shuvr server is responding for session {}. the binary was updated; run `{command}` to start v{}.",
                     plan.label(),
                     release.version
                 );
             } else {
                 eprintln!(
-                    "no herdr server is responding at {}. the binary was updated; restart with the same socket override to use v{}.",
+                    "no shuvr server is responding at {}. the binary was updated; restart with the same socket override to use v{}.",
                     plan.socket_path().display(),
                     release.version
                 );
@@ -1063,7 +1106,7 @@ fn recover_failed_live_handoff_for_update(
         }
         FailedHandoffServerState::Unknown(status_error) => {
             eprintln!(
-                "herdr could not determine server state for {} {} after the failed handoff: {status_error}",
+                "shuvr could not determine server state for {} {} after the failed handoff: {status_error}",
                 plan.target_noun(),
                 plan.label()
             );
@@ -1245,7 +1288,7 @@ fn wait_for_server_shutdown_at(socket_path: &Path, timeout: Duration) -> Result<
 }
 
 fn stop_running_server_for_update(plan: &RunningServerUpdatePlan) -> Result<(), String> {
-    eprintln!("stopping herdr {} {}...", plan.target_noun(), plan.label());
+    eprintln!("stopping shuvr {} {}...", plan.target_noun(), plan.label());
     stop_server_via_api_at(plan.socket_path(), SERVER_STOP_RESPONSE_TIMEOUT)?;
     wait_for_server_shutdown_at(plan.socket_path(), SERVER_HANDOFF_CONFIRM_TIMEOUT)?;
     Ok(())
@@ -1336,7 +1379,7 @@ fn print_running_session_update_outcomes(
     release: &ReleaseInfo,
 ) {
     if outcomes.is_empty() {
-        eprintln!("run herdr again.");
+        eprintln!("run shuvr again.");
         return;
     }
 
@@ -1423,7 +1466,7 @@ pub(crate) fn update_install_command() -> &'static str {
     } else if is_nix_managed_install() {
         NIX_UPDATE_COMMAND
     } else {
-        HERDR_UPDATE_COMMAND
+        SHUVR_UPDATE_COMMAND
     }
 }
 
@@ -1475,7 +1518,7 @@ fn is_homebrew_managed_exe_path(path: &Path) -> bool {
 }
 
 fn homebrew_cellar_keg_root(path: &Path) -> Option<PathBuf> {
-    if path.file_name()? != "herdr" {
+    if path.file_name()? != "shuvr" {
         return None;
     }
     let bin_dir = path.parent()?;
@@ -1484,7 +1527,7 @@ fn homebrew_cellar_keg_root(path: &Path) -> Option<PathBuf> {
     }
     let version_dir = bin_dir.parent()?;
     let formula_dir = version_dir.parent()?;
-    if formula_dir.file_name()? != "herdr" {
+    if formula_dir.file_name()? != "shuvr" {
         return None;
     }
     let cellar_dir = formula_dir.parent()?;
@@ -1686,7 +1729,7 @@ fn parse_star_prompt_response(input: &str) -> Option<bool> {
 }
 
 fn star_prompt_message(viewer_login: &str) -> String {
-    format!("If herdr has been useful, star it using gh account {viewer_login}? [Y/n] ")
+    format!("If shuvr has been useful, star it using gh account {viewer_login}? [Y/n] ")
 }
 
 fn prompt_to_star_repository(viewer_login: &str) -> io::Result<bool> {
@@ -1784,7 +1827,7 @@ fn maybe_offer_star_after_successful_update() {
 // Public API
 // ---------------------------------------------------------------------------
 
-/// Manual self-update command (`herdr update`).
+/// Manual self-update command (`shuvr update`).
 pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
     if is_homebrew_managed_install() {
         return Err(format!(
@@ -1794,12 +1837,12 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
 
     if is_nix_managed_install() {
         return Err(
-            "self-update is disabled for Nix installs; update with `nix profile upgrade` or update the flake input that provides Herdr".into(),
+            "self-update is disabled for Nix installs; update with `nix profile upgrade` or update the flake input that provides Shuvr".into(),
         );
     }
 
-    if running_inside_herdr() {
-        return Err("run `herdr update` outside herdr after detaching from the session".into());
+    if running_inside_shuvr() {
+        return Err("run `shuvr update` outside shuvr after detaching from the session".into());
     }
 
     eprintln!("checking for updates...");
@@ -1912,7 +1955,7 @@ pub fn auto_update(events: tokio::sync::mpsc::Sender<crate::events::AppEvent>) {
     let install_command = if nix_managed_install {
         NIX_UPDATE_COMMAND
     } else {
-        HERDR_UPDATE_COMMAND
+        SHUVR_UPDATE_COMMAND
     };
 
     let _ = events.blocking_send(crate::events::AppEvent::UpdateReady {
@@ -2007,6 +2050,9 @@ mod tests {
     use std::sync::{Mutex, OnceLock};
     use std::thread;
 
+    const TEST_SHA256: &str =
+        "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
     fn env_lock() -> &'static Mutex<()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         LOCK.get_or_init(|| Mutex::new(()))
@@ -2069,7 +2115,8 @@ mod tests {
         ReleaseInfo {
             version: Version::parse(version).unwrap(),
             target_protocol,
-            download_url: "https://example.com/herdr".to_string(),
+            download_url: "https://example.com/shuvr".to_string(),
+            checksum: TEST_SHA256.to_string(),
             notes_body: "### Changed\n- One".to_string(),
         }
     }
@@ -2123,32 +2170,32 @@ mod tests {
 
     #[test]
     fn homebrew_cellar_path_is_detected() {
-        let path = Path::new("/opt/homebrew/Cellar/herdr/0.5.9/bin/herdr");
+        let path = Path::new("/opt/homebrew/Cellar/shuvr/0.5.9/bin/shuvr");
 
         assert!(is_homebrew_managed_exe_path(path));
         assert_eq!(
             homebrew_cellar_keg_root(path).unwrap(),
-            PathBuf::from("/opt/homebrew/Cellar/herdr/0.5.9")
+            PathBuf::from("/opt/homebrew/Cellar/shuvr/0.5.9")
         );
     }
 
     #[test]
     fn homebrew_linux_cellar_path_is_detected() {
-        let path = Path::new("/home/linuxbrew/.linuxbrew/Cellar/herdr/0.5.9/bin/herdr");
+        let path = Path::new("/home/linuxbrew/.linuxbrew/Cellar/shuvr/0.5.9/bin/shuvr");
 
         assert!(is_homebrew_managed_exe_path(path));
     }
 
     #[test]
     fn homebrew_opt_path_requires_canonicalized_cellar_target() {
-        let path = Path::new("/opt/homebrew/opt/herdr/bin/herdr");
+        let path = Path::new("/opt/homebrew/opt/shuvr/bin/shuvr");
 
         assert!(!is_homebrew_managed_exe_path(path));
     }
 
     #[test]
     fn non_homebrew_path_is_not_detected() {
-        let path = Path::new("/usr/local/bin/herdr");
+        let path = Path::new("/usr/local/bin/shuvr");
 
         assert!(!is_homebrew_managed_exe_path(path));
     }
@@ -2158,15 +2205,15 @@ mod tests {
         #[cfg(unix)]
         {
             let root = std::env::temp_dir().join(format!(
-                "herdr-homebrew-symlink-test-{}",
+                "shuvr-homebrew-symlink-test-{}",
                 std::process::id()
             ));
-            let cellar_bin = root.join("Cellar/herdr/0.6.2/bin");
-            let opt_bin = root.join("opt/herdr/bin");
+            let cellar_bin = root.join("Cellar/shuvr/0.6.2/bin");
+            let opt_bin = root.join("opt/shuvr/bin");
             fs::create_dir_all(&cellar_bin).unwrap();
             fs::create_dir_all(&opt_bin).unwrap();
-            let cellar_binary = cellar_bin.join("herdr");
-            let opt_binary = opt_bin.join("herdr");
+            let cellar_binary = cellar_bin.join("shuvr");
+            let opt_binary = opt_bin.join("shuvr");
             fs::write(&cellar_binary, b"").unwrap();
             std::os::unix::fs::symlink(&cellar_binary, &opt_binary).unwrap();
 
@@ -2178,7 +2225,7 @@ mod tests {
 
     #[test]
     fn nix_store_path_is_detected() {
-        let path = Path::new("/nix/store/abc123-herdr-0.6.1/bin/herdr");
+        let path = Path::new("/nix/store/abc123-shuvr-0.6.1/bin/shuvr");
 
         assert!(is_nix_store_exe_path(path));
         assert!(is_package_manager_managed_exe_path(path));
@@ -2186,7 +2233,7 @@ mod tests {
 
     #[test]
     fn non_nix_store_path_is_not_detected() {
-        let path = Path::new("/usr/local/bin/herdr");
+        let path = Path::new("/usr/local/bin/shuvr");
 
         assert!(!is_nix_store_exe_path(path));
     }
@@ -2241,7 +2288,7 @@ mod tests {
                 "protocol": 10,
                 "notes": "### Fixed\n- Brew notes",
                 "assets": {
-                    "linux-x86_64": "https://example.com/herdr-linux-x86_64"
+                    "linux-x86_64": "https://example.com/shuvr-linux-x86_64"
                 }
             }"####,
         )
@@ -2278,10 +2325,10 @@ mod tests {
     }
 
     #[test]
-    fn running_inside_herdr_env_requires_marker() {
-        assert!(running_inside_herdr_env(Some(crate::HERDR_ENV_VALUE)));
-        assert!(!running_inside_herdr_env(None));
-        assert!(!running_inside_herdr_env(Some("0")));
+    fn running_inside_shuvr_env_requires_marker() {
+        assert!(running_inside_shuvr_env(Some(crate::SHUVR_ENV_VALUE)));
+        assert!(!running_inside_shuvr_env(None));
+        assert!(!running_inside_shuvr_env(Some("0")));
     }
 
     #[test]
@@ -2323,7 +2370,8 @@ mod tests {
         let compatible_release = ReleaseInfo {
             version: Version::parse("0.5.6").unwrap(),
             target_protocol: Some(2),
-            download_url: "https://example.com/herdr".to_string(),
+            download_url: "https://example.com/shuvr".to_string(),
+            checksum: TEST_SHA256.to_string(),
             notes_body: "### Changed\n- One".to_string(),
         };
         let incompatible_release = ReleaseInfo {
@@ -2357,8 +2405,8 @@ mod tests {
             target: RunningUpdateTarget {
                 name: Some("work".to_string()),
                 label: "work".to_string(),
-                stop_command: "herdr session stop work".to_string(),
-                attach_command: Some("herdr session attach work".to_string()),
+                stop_command: "shuvr session stop work".to_string(),
+                attach_command: Some("shuvr session attach work".to_string()),
                 socket_path: crate::session::api_socket_path_for(Some("work")),
                 client_socket_path: crate::session::client_socket_path_for(Some("work")),
                 must_be_running: true,
@@ -2418,11 +2466,11 @@ mod tests {
     fn explicit_session_update_targets_only_that_session() {
         let _guard = env_lock().lock().unwrap();
         let config_home = set_test_config_home("explicit-session");
-        std::env::set_var(crate::api::SOCKET_PATH_ENV_VAR, "/tmp/ignored-herdr.sock");
+        std::env::set_var(crate::api::SOCKET_PATH_ENV_VAR, "/tmp/ignored-shuvr.sock");
         std::env::remove_var(crate::session::SESSION_ENV_VAR);
         crate::session::clear_explicit_session_for_test();
         let args = vec![
-            "herdr".to_string(),
+            "shuvr".to_string(),
             "--session".to_string(),
             "work".to_string(),
             "update".to_string(),
@@ -2447,7 +2495,7 @@ mod tests {
     #[test]
     fn socket_override_update_targets_socket_not_env_session() {
         let _guard = env_lock().lock().unwrap();
-        std::env::set_var(crate::api::SOCKET_PATH_ENV_VAR, "/tmp/custom-herdr.sock");
+        std::env::set_var(crate::api::SOCKET_PATH_ENV_VAR, "/tmp/custom-shuvr.sock");
         std::env::set_var(crate::session::SESSION_ENV_VAR, "work");
         crate::session::clear_explicit_session_for_test();
 
@@ -2461,7 +2509,7 @@ mod tests {
         assert_eq!(targets[0].name, None);
         assert_eq!(
             targets[0].socket_path,
-            PathBuf::from("/tmp/custom-herdr.sock")
+            PathBuf::from("/tmp/custom-shuvr.sock")
         );
         assert!(targets[0]
             .stop_command
@@ -2492,7 +2540,7 @@ mod tests {
             "unexpected error: {err}"
         );
         assert!(
-            err.contains("herdr session stop work"),
+            err.contains("shuvr session stop work"),
             "unexpected error: {err}"
         );
     }
@@ -2556,15 +2604,16 @@ mod tests {
         let release = ReleaseInfo {
             version: Version::parse("0.5.6").unwrap(),
             target_protocol: Some(3),
-            download_url: "https://example.com/herdr".to_string(),
+            download_url: "https://example.com/shuvr".to_string(),
+            checksum: TEST_SHA256.to_string(),
             notes_body: "### Changed\n- One".to_string(),
         };
         let plan = RunningServerUpdatePlan {
             target: RunningUpdateTarget {
                 name: Some("work".to_string()),
                 label: "work".to_string(),
-                stop_command: "herdr session stop work".to_string(),
-                attach_command: Some("herdr session attach work".to_string()),
+                stop_command: "shuvr session stop work".to_string(),
+                attach_command: Some("shuvr session attach work".to_string()),
                 socket_path: crate::session::api_socket_path_for(Some("work")),
                 client_socket_path: crate::session::client_socket_path_for(Some("work")),
                 must_be_running: true,
@@ -2675,7 +2724,7 @@ mod tests {
                 .unwrap();
             let value: serde_json::Value = serde_json::from_str(&request).unwrap();
             assert_eq!(value["method"], "server.live_handoff");
-            assert_eq!(value["params"]["import_exe"], "/tmp/herdr-new");
+            assert_eq!(value["params"]["import_exe"], "/tmp/shuvr-new");
             assert_eq!(value["params"]["expected_protocol"], 77);
             assert_eq!(value["params"]["expected_version"], "9.8.7");
             stream
@@ -2686,14 +2735,15 @@ mod tests {
         let release = ReleaseInfo {
             version: Version::parse("9.8.7").unwrap(),
             target_protocol: Some(77),
-            download_url: "https://example.com/herdr".to_string(),
+            download_url: "https://example.com/shuvr".to_string(),
+            checksum: TEST_SHA256.to_string(),
             notes_body: "### Changed\n- One".to_string(),
         };
 
         let result = live_handoff_server_via_api_for_release_at(
             &socket_path,
             Duration::from_millis(200),
-            Path::new("/tmp/herdr-new"),
+            Path::new("/tmp/shuvr-new"),
             &release,
         );
         let _ = handle.join();
@@ -2798,7 +2848,7 @@ mod tests {
     fn star_prompt_mentions_gh_account_when_known() {
         assert_eq!(
             star_prompt_message("ogulcancelik"),
-            "If herdr has been useful, star it using gh account ogulcancelik? [Y/n] "
+            "If shuvr has been useful, star it using gh account ogulcancelik? [Y/n] "
         );
     }
 
@@ -2851,7 +2901,7 @@ mod tests {
     #[test]
     fn star_prompt_state_round_trips() {
         let path = std::env::temp_dir().join(format!(
-            "herdr-star-prompt-{}-{}.json",
+            "shuvr-star-prompt-{}-{}.json",
             std::process::id(),
             "round-trip"
         ));
@@ -2886,8 +2936,8 @@ mod tests {
                 \"body\": \"### Heads up\\n- Defaults changed\"\n\
             },\n\
             \"assets\": {\n\
-                \"linux-x86_64\": \"https://example.com/herdr-linux-x86_64\",\n\
-                \"macos-aarch64\": \"https://example.com/herdr-macos-aarch64\"\n\
+                \"linux-x86_64\": \"https://example.com/shuvr-linux-x86_64\",\n\
+                \"macos-aarch64\": \"https://example.com/shuvr-macos-aarch64\"\n\
             }\n\
         }";
         let manifest: UpdateManifest = serde_json::from_str(json).unwrap();
@@ -2911,7 +2961,7 @@ mod tests {
         );
         assert_eq!(
             manifest.download_url_for("linux", "x86_64").as_deref(),
-            Some("https://example.com/herdr-linux-x86_64")
+            Some("https://example.com/shuvr-linux-x86_64")
         );
     }
 
@@ -3018,7 +3068,7 @@ mod tests {
         let json = r#"{
             "version": "0.2.0",
             "assets": {
-                "linux-x86_64": "https://example.com/herdr-linux-x86_64"
+                "linux-x86_64": "https://example.com/shuvr-linux-x86_64"
             }
         }"#;
 
@@ -3040,7 +3090,10 @@ mod tests {
                     "body": "### Heads up\n- Defaults changed"
                 }},
                 "assets": {{
-                    "{asset_key}": "https://example.com/herdr"
+                    "{asset_key}": "https://example.com/shuvr"
+                }},
+                "checksums": {{
+                    "{asset_key}": "{TEST_SHA256}"
                 }}
             }}"####
         );
@@ -3052,7 +3105,66 @@ mod tests {
             .expect("release info");
 
         assert_eq!(release.version, Version::parse("99.99.99").unwrap());
-        assert_eq!(release.download_url, "https://example.com/herdr");
+        assert_eq!(release.download_url, "https://example.com/shuvr");
+        assert_eq!(release.checksum, TEST_SHA256);
+    }
+
+    #[test]
+    fn release_info_requires_checksum_for_current_target() {
+        let (os, arch) = platform_target();
+        let asset_key = format!("{os}-{arch}");
+        let json = format!(
+            r####"{{
+                "version": "99.99.99",
+                "protocol": 4,
+                "notes": "### Changed\n- One",
+                "assets": {{
+                    "{asset_key}": "https://example.com/shuvr"
+                }},
+                "checksums": {{}}
+            }}"####
+        );
+
+        let manifest: UpdateManifest = serde_json::from_str(&json).unwrap();
+        let err = release_info_from_manifest(&manifest).unwrap_err();
+
+        assert!(err.contains(&format!("no checksum for {asset_key}")));
+    }
+
+    #[test]
+    fn release_info_rejects_invalid_checksum_shape() {
+        let (os, arch) = platform_target();
+        let asset_key = format!("{os}-{arch}");
+        let json = format!(
+            r####"{{
+                "version": "99.99.99",
+                "protocol": 4,
+                "notes": "### Changed\n- One",
+                "assets": {{
+                    "{asset_key}": "https://example.com/shuvr"
+                }},
+                "checksums": {{
+                    "{asset_key}": "sha256:not-a-real-digest"
+                }}
+            }}"####
+        );
+
+        let manifest: UpdateManifest = serde_json::from_str(&json).unwrap();
+        let err = release_info_from_manifest(&manifest).unwrap_err();
+
+        assert!(err.contains("64-character hex sha256 digest"));
+    }
+
+    #[test]
+    fn verify_file_sha256_rejects_mismatch() {
+        let path =
+            std::env::temp_dir().join(format!("shuvr-checksum-mismatch-{}", std::process::id()));
+        fs::write(&path, b"actual bytes").unwrap();
+
+        let err = verify_file_sha256(&path, TEST_SHA256).unwrap_err();
+
+        assert!(err.contains("checksum mismatch"));
+        let _ = fs::remove_file(path);
     }
 
     #[test]
@@ -3086,10 +3198,6 @@ mod tests {
                 url.contains(&format!("/releases/download/v{}/", manifest.version)),
                 "unexpected release URL for {target}: {url}"
             );
-            assert!(
-                url.ends_with(&format!("herdr-{target}")),
-                "unexpected asset name for {target}: {url}"
-            );
         }
 
         for (version, release) in &manifest.releases {
@@ -3110,10 +3218,6 @@ mod tests {
                 assert!(
                     url.contains(&format!("/releases/download/v{version}/")),
                     "unexpected release URL for {version} {target}: {url}"
-                );
-                assert!(
-                    url.ends_with(&format!("herdr-{target}")),
-                    "unexpected asset name for {version} {target}: {url}"
                 );
             }
         }
