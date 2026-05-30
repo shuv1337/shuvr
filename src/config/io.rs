@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use tracing::warn;
 
@@ -6,9 +7,9 @@ use super::{model::LoadedConfig, Config, CONFIG_PATH_ENV_VAR};
 
 pub fn app_dir_name() -> &'static str {
     if cfg!(debug_assertions) {
-        "herdr-dev"
+        "shuvr-dev"
     } else {
-        "herdr"
+        "shuvr"
     }
 }
 
@@ -18,7 +19,7 @@ pub fn config_dir() -> PathBuf {
     } else if let Ok(home) = std::env::var("HOME") {
         PathBuf::from(home).join(format!(".config/{}", app_dir_name()))
     } else {
-        PathBuf::from(format!("/tmp/{}", app_dir_name()))
+        private_fallback_dir("config")
     }
 }
 
@@ -28,8 +29,44 @@ pub fn state_dir() -> PathBuf {
     } else if let Ok(home) = std::env::var("HOME") {
         PathBuf::from(home).join(format!(".local/state/{}", app_dir_name()))
     } else {
-        PathBuf::from(format!("/tmp/{}-state", app_dir_name()))
+        private_fallback_dir("state")
     }
+}
+
+fn private_fallback_dir(kind: &str) -> PathBuf {
+    static FALLBACK_ROOT: OnceLock<PathBuf> = OnceLock::new();
+    FALLBACK_ROOT
+        .get_or_init(|| {
+            let base = std::env::temp_dir();
+            for attempt in 0..100 {
+                let nanos = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|duration| duration.as_nanos())
+                    .unwrap_or(0);
+                let path = base.join(format!(
+                    "{}-{}-{nanos}-{attempt}",
+                    app_dir_name(),
+                    std::process::id()
+                ));
+                if create_private_dir(&path).is_ok() {
+                    return path;
+                }
+            }
+            base.join(format!("{}-{}", app_dir_name(), std::process::id()))
+        })
+        .join(kind)
+}
+
+#[cfg(unix)]
+fn create_private_dir(path: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    let mut builder = std::fs::DirBuilder::new();
+    builder.mode(0o700).create(path)
+}
+
+#[cfg(not(unix))]
+fn create_private_dir(path: &Path) -> std::io::Result<()> {
+    std::fs::create_dir(path)
 }
 
 impl Config {
@@ -429,6 +466,12 @@ fn upsert_section_raw(content: &str, section: &str, key: &str, value: &str) -> S
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    fn env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
 
     #[test]
     fn upsert_top_level_bool_replaces_existing_value() {
@@ -448,10 +491,10 @@ mod tests {
     #[test]
     fn remove_section_key_removes_matching_key_from_section() {
         let content =
-            "[ui.toast]\nenabled = true\ndelivery = \"herdr\"\n[ui.sound]\nenabled = true\n";
+            "[ui.toast]\nenabled = true\ndelivery = \"shuvr\"\n[ui.sound]\nenabled = true\n";
         let updated = remove_section_key(content, "ui.toast", "enabled");
         assert!(!updated.contains("[ui.toast]\nenabled = true"));
-        assert!(updated.contains("delivery = \"herdr\""));
+        assert!(updated.contains("delivery = \"shuvr\""));
         assert!(updated.contains("[ui.sound]\nenabled = true"));
     }
 
@@ -526,5 +569,50 @@ mouse_capture = false
         let (updated, removed) = remove_keybinding_config_sections(content);
         assert!(!removed);
         assert_eq!(updated, content);
+    }
+
+    #[test]
+    fn config_and_state_fallback_without_home_or_xdg_use_private_temp_root() {
+        let _guard = env_lock().lock().unwrap();
+        let old_home = std::env::var_os("HOME");
+        let old_xdg_config = std::env::var_os("XDG_CONFIG_HOME");
+        let old_xdg_state = std::env::var_os("XDG_STATE_HOME");
+
+        std::env::remove_var("HOME");
+        std::env::remove_var("XDG_CONFIG_HOME");
+        std::env::remove_var("XDG_STATE_HOME");
+
+        let config = config_dir();
+        let state = state_dir();
+
+        if let Some(value) = old_home {
+            std::env::set_var("HOME", value);
+        }
+        if let Some(value) = old_xdg_config {
+            std::env::set_var("XDG_CONFIG_HOME", value);
+        }
+        if let Some(value) = old_xdg_state {
+            std::env::set_var("XDG_STATE_HOME", value);
+        }
+
+        assert!(config.ends_with("config"));
+        assert!(state.ends_with("state"));
+        assert_eq!(config.parent(), state.parent());
+        let root = config.parent().expect("fallback root");
+        let root_name = root
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
+        assert!(root.starts_with(std::env::temp_dir()));
+        assert!(root_name.starts_with(app_dir_name()));
+        assert_ne!(root, std::env::temp_dir().join(app_dir_name()));
+        assert!(root_name.contains(&std::process::id().to_string()));
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(root).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o700);
+        }
     }
 }

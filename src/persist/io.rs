@@ -48,15 +48,40 @@ pub(super) fn save_to_path(path: &Path, snapshot: &SessionSnapshot) -> std::io::
 fn save_json_to_path<T: serde::Serialize>(path: &Path, snapshot: &T) -> std::io::Result<()> {
     let target = resolve_write_target(path)?;
     if let Some(parent) = target.parent() {
-        std::fs::create_dir_all(parent)?;
+        create_private_dir_all(parent)?;
     }
     let json = serde_json::to_string_pretty(snapshot)?;
     let tmp_path = target.with_extension("json.tmp");
     std::fs::write(&tmp_path, &json)?;
+    set_owner_only_file_permissions(&tmp_path)?;
     if let Err(err) = std::fs::rename(&tmp_path, &target) {
         let _ = std::fs::remove_file(&tmp_path);
         return Err(err);
     }
+    set_owner_only_file_permissions(&target)?;
+    Ok(())
+}
+
+#[cfg(unix)]
+fn create_private_dir_all(path: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    let mut builder = std::fs::DirBuilder::new();
+    builder.recursive(true).mode(0o700).create(path)
+}
+
+#[cfg(not(unix))]
+fn create_private_dir_all(path: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(path)
+}
+
+#[cfg(unix)]
+fn set_owner_only_file_permissions(path: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+}
+
+#[cfg(not(unix))]
+fn set_owner_only_file_permissions(_path: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
@@ -130,7 +155,7 @@ pub fn load() -> Option<SessionSnapshot> {
                     warn!(
                         file_version = version,
                         supported = SNAPSHOT_VERSION,
-                        "session file is from a newer herdr version, ignoring"
+                        "session file is from a newer shuvr version, ignoring"
                     );
                     return None;
                 }
@@ -161,7 +186,7 @@ pub fn load_history() -> Option<SessionHistorySnapshot> {
                     warn!(
                         file_version = version,
                         supported = SNAPSHOT_VERSION,
-                        "session history file is from a newer herdr version, ignoring"
+                        "session history file is from a newer shuvr version, ignoring"
                     );
                     return None;
                 }
@@ -182,7 +207,7 @@ mod tests {
 
     fn temp_session_path(name: &str) -> PathBuf {
         let unique = format!(
-            "herdr-session-tests-{}-{}-{}",
+            "shuvr-session-tests-{}-{}-{}",
             name,
             std::process::id(),
             std::time::SystemTime::now()
@@ -246,6 +271,35 @@ mod tests {
         assert!(!session.contains("split-secret"));
         assert!(!session.contains("history"));
         assert!(history.contains("split-secret"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn save_to_paths_writes_owner_only_files() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let (session_path, history_path) = temp_session_paths("owner-only");
+
+        save_to_paths(
+            &session_path,
+            &history_path,
+            &empty_snapshot(),
+            Some(&history_snapshot("private-secret")),
+        )
+        .unwrap();
+
+        let session_mode = std::fs::metadata(&session_path)
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777;
+        let history_mode = std::fs::metadata(&history_path)
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(session_mode, 0o600);
+        assert_eq!(history_mode, 0o600);
     }
 
     #[test]
