@@ -89,9 +89,11 @@ fn agent_panel_current_workspace_idx(app: &AppState) -> Option<usize> {
 }
 
 fn agent_panel_toggle_label(scope: AgentPanelScope) -> &'static str {
+    // Bracketed so it reads as an interactive scope toggle, distinct from the
+    // plain "agents" section label it sits beside.
     match scope {
-        AgentPanelScope::CurrentWorkspace => "current",
-        AgentPanelScope::AllWorkspaces => "all",
+        AgentPanelScope::CurrentWorkspace => "[current]",
+        AgentPanelScope::AllWorkspaces => "[all]",
     }
 }
 
@@ -863,7 +865,7 @@ fn render_workspace_list(
     if area.height > 0 {
         frame.render_widget(
             Paragraph::new(Line::from(vec![Span::styled(
-                " spaces",
+                " workspaces",
                 Style::default().fg(p.overlay0).add_modifier(Modifier::BOLD),
             )])),
             Rect::new(area.x, area.y, area.width, 1),
@@ -1023,21 +1025,22 @@ fn render_workspace_list(
     if app.mouse_capture && list_bottom > area.y {
         let new_rect = app.sidebar_new_button_rect();
         frame.render_widget(
-            Paragraph::new(Span::styled(" new", Style::default().fg(p.overlay0))),
+            Paragraph::new(Span::styled(
+                "+ new",
+                Style::default().fg(p.accent).add_modifier(Modifier::BOLD),
+            )),
             new_rect,
         );
 
         let menu_rect = app.global_launcher_rect();
+        let menu_style = Style::default().fg(p.accent).add_modifier(Modifier::BOLD);
         let menu_line = if app.global_menu_attention_badge_visible() {
             Line::from(vec![
-                Span::styled(
-                    "● ",
-                    Style::default().fg(p.accent).add_modifier(Modifier::BOLD),
-                ),
-                Span::styled("menu", Style::default().fg(p.overlay0)),
+                Span::styled("● ", menu_style),
+                Span::styled("menu", menu_style),
             ])
         } else {
-            Line::from(vec![Span::styled("menu", Style::default().fg(p.overlay0))])
+            Line::from(vec![Span::styled("menu", menu_style)])
         };
         frame.render_widget(
             Paragraph::new(menu_line).alignment(Alignment::Right),
@@ -1076,7 +1079,7 @@ fn render_agent_detail(
         frame.render_widget(
             Paragraph::new(Span::styled(
                 agent_panel_toggle_label(app.agent_panel_scope),
-                Style::default().fg(p.overlay0).add_modifier(Modifier::BOLD),
+                Style::default().fg(p.accent).add_modifier(Modifier::BOLD),
             ))
             .alignment(Alignment::Right),
             toggle_rect,

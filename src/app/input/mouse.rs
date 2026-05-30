@@ -141,6 +141,27 @@ impl AppState {
             && mouse.row >= sidebar.y
             && mouse.row < sidebar.y + sidebar.height;
 
+        // Empty-state "Create workspace" button: a left click on it makes the
+        // first workspace, matching the keyboard Enter path. Gated to Navigate so
+        // it does not fire underneath an open palette/navigator (which render over
+        // the empty surface while there is still no workspace).
+        if self.mode == Mode::Navigate
+            && matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
+            && self.active.is_none()
+            && !in_sidebar
+        {
+            let button = crate::ui::empty_state_create_button_rect(self.view.terminal_area);
+            if button.width > 0
+                && mouse.column >= button.x
+                && mouse.column < button.x + button.width
+                && mouse.row >= button.y
+                && mouse.row < button.y + button.height
+            {
+                self.request_new_workspace = true;
+                return None;
+            }
+        }
+
         if self.mode == Mode::OpenExistingWorktree {
             match mouse.kind {
                 MouseEventKind::ScrollUp => {
@@ -1054,10 +1075,19 @@ impl AppState {
     pub(super) fn screen_rect(&self) -> Rect {
         let sidebar = self.view.sidebar_rect;
         let terminal = self.view.terminal_area;
+        // Include the reserved status-bar row so this equals the full screen, as
+        // it did before the bottom row was reserved. Full-screen modals render
+        // against the whole frame, and their mouse hit-tests center against this
+        // rect — the two must use the same height or button clicks miss by a row.
+        let status = self.view.status_bar_rect;
         let x = sidebar.x.min(terminal.x);
         let y = sidebar.y.min(terminal.y);
-        let right = (sidebar.x + sidebar.width).max(terminal.x + terminal.width);
-        let bottom = (sidebar.y + sidebar.height).max(terminal.y + terminal.height);
+        let right = (sidebar.x + sidebar.width)
+            .max(terminal.x + terminal.width)
+            .max(status.x + status.width);
+        let bottom = (sidebar.y + sidebar.height)
+            .max(terminal.y + terminal.height)
+            .max(status.y + status.height);
         Rect::new(x, y, right.saturating_sub(x), bottom.saturating_sub(y))
     }
 
@@ -1679,6 +1709,42 @@ mod tests {
     }
 
     #[test]
+    fn empty_state_button_click_creates_workspace_in_navigate() {
+        let mut app = app_for_mouse_test();
+        app.state.workspaces.clear();
+        app.state.active = None;
+        app.state.mode = Mode::Navigate;
+
+        let button = crate::ui::empty_state_create_button_rect(app.state.view.terminal_area);
+        app.handle_mouse(mouse(
+            MouseEventKind::Down(MouseButton::Left),
+            button.x,
+            button.y,
+        ));
+
+        assert!(app.state.request_new_workspace);
+    }
+
+    #[test]
+    fn empty_state_button_click_ignored_under_command_palette() {
+        let mut app = app_for_mouse_test();
+        app.state.workspaces.clear();
+        app.state.active = None;
+        // The palette renders over the empty surface while there is still no
+        // workspace; the create-button click must not fire underneath it.
+        app.state.mode = Mode::CommandPalette;
+
+        let button = crate::ui::empty_state_create_button_rect(app.state.view.terminal_area);
+        app.handle_mouse(mouse(
+            MouseEventKind::Down(MouseButton::Left),
+            button.x,
+            button.y,
+        ));
+
+        assert!(!app.state.request_new_workspace);
+    }
+
+    #[test]
     fn clicking_agent_toast_focuses_target_pane() {
         let mut app = app_for_mouse_test();
         let active = Workspace::test_new("active");
@@ -1936,7 +2002,8 @@ mod tests {
             kind: ContextMenuKind::Workspace { ws_idx: 1 },
             x: 2,
             y: 2,
-            list: MenuListState::new(1),
+            // Items are ["New workspace", "Rename", "Close"]; "Close" is index 2.
+            list: MenuListState::new(2),
         });
         app.state.mode = Mode::ContextMenu;
         handle_context_menu_key(

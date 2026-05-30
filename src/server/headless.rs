@@ -343,7 +343,7 @@ impl HeadlessServer {
             // Handle deferred requests.
             if self.app.state.request_complete_onboarding {
                 self.app.state.request_complete_onboarding = false;
-                self.app.open_settings_from_onboarding();
+                self.app.complete_onboarding_to_workspace();
                 needs_render = true;
             }
 

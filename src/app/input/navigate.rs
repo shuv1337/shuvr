@@ -80,7 +80,20 @@ impl App {
         self.state.update_dismissed = true;
 
         if key.code == KeyCode::Esc || self.state.is_prefix_key(raw_key) {
-            leave_navigate_mode(&mut self.state);
+            if self.state.workspaces.is_empty() {
+                // There is nothing to go "back" to yet, so leave_navigate_mode is a
+                // silent no-op here. Turn the dead keypress into guidance instead.
+                let previous_toast = self.state.toast.clone();
+                self.state.toast = Some(crate::app::state::ToastNotification {
+                    kind: crate::app::state::ToastKind::Finished,
+                    title: "No workspaces yet".to_string(),
+                    context: "press enter to create your first one".to_string(),
+                    target: None,
+                });
+                self.sync_toast_deadline(previous_toast);
+            } else {
+                leave_navigate_mode(&mut self.state);
+            }
             return;
         }
 
@@ -381,7 +394,12 @@ pub(super) fn handle_navigate_reserved_key(state: &mut AppState, key: TerminalKe
     if modifiers.is_empty() {
         match code {
             KeyCode::Enter => {
-                if !state.workspaces.is_empty() {
+                if state.workspaces.is_empty() {
+                    // Empty state: Enter is the zero-knowledge path to the first
+                    // workspace. Without this, the only documented action
+                    // (the prefix chord) is unreachable from here.
+                    state.request_new_workspace = true;
+                } else {
                     state.switch_workspace(state.selected);
                     leave_navigate_mode(state);
                 }
@@ -516,6 +534,7 @@ pub(crate) enum NavigateAction {
     OpenNotificationTarget,
     Detach,
     OpenNavigator,
+    OpenCommandPalette,
 }
 
 fn indexed_navigation_action(
@@ -578,6 +597,7 @@ fn action_for_key(
     for (bindings, action) in [
         (&kb.help, NavigateAction::Help),
         (&kb.settings, NavigateAction::Settings),
+        (&kb.command_palette, NavigateAction::OpenCommandPalette),
         (&kb.workspace_picker, NavigateAction::WorkspacePicker),
         (&kb.new_workspace, NavigateAction::NewWorkspace),
         (&kb.new_worktree, NavigateAction::NewWorktree),
@@ -829,6 +849,10 @@ pub(super) fn execute_navigate_action_in_context(
             leave_navigate_mode(state);
         }
         NavigateAction::OpenNavigator => state.open_navigator(),
+        NavigateAction::OpenCommandPalette => {
+            state.command_palette = crate::app::state::CommandPaletteState::default();
+            state.mode = Mode::CommandPalette;
+        }
     }
 
     finish_action_context(state, context, previous_mode);

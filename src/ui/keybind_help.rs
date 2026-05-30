@@ -55,6 +55,7 @@ pub(super) fn keybind_help_groups(
                 "prefix mode",
             ),
             (keybind_label(&kb.help), "keybinds"),
+            (keybind_label(&kb.command_palette), "command palette"),
             (keybind_label(&kb.settings), "settings"),
             (keybind_label(&kb.detach), "detach"),
             (keybind_label(&kb.reload_config), "reload config"),

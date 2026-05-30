@@ -12,8 +12,6 @@ use super::widgets::{
 };
 use crate::app::AppState;
 
-const ONBOARDING_PREFIX_LABEL: &str = "ctrl+b";
-
 pub(super) fn render_onboarding_overlay(app: &AppState, frame: &mut Frame, area: Rect) {
     super::dim_background(frame, area);
     render_onboarding_welcome(app, frame, area);
@@ -63,40 +61,33 @@ fn render_onboarding_welcome(app: &AppState, frame: &mut Frame, area: Rect) {
 
     frame.render_widget(
         Paragraph::new(
-            "  this is a mouse-first terminal.\n  click the sidebar to switch workspaces, drag pane\n  borders to resize, right-click for context menus.",
+            "  Workspaces hold your projects — each a repo or folder.\n  Every tab and pane is a real terminal. Run a coding\n  agent in a pane and watch its state in the sidebar.",
         )
         .style(Style::default().fg(app.palette.overlay1)),
         content_rows[0],
     );
 
+    let prefix = crate::config::format_key_combo((app.prefix_code, app.prefix_mods));
+    let accent = Style::default()
+        .fg(app.palette.accent)
+        .add_modifier(Modifier::BOLD);
     let key_line = Line::from(vec![
         Span::styled("  ", Style::default()),
+        Span::styled(prefix, accent),
         Span::styled(
-            ONBOARDING_PREFIX_LABEL,
-            Style::default()
-                .fg(app.palette.accent)
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(
-            " enters prefix mode · ",
+            " prefix, then a letter. ",
             Style::default().fg(app.palette.overlay1),
         ),
-        Span::styled(
-            "?",
-            Style::default()
-                .fg(app.palette.accent)
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(
-            " shows keybinds and settings",
-            Style::default().fg(app.palette.overlay1),
-        ),
+        Span::styled("?", accent),
+        Span::styled(" shows all keys", Style::default().fg(app.palette.overlay1)),
     ]);
     frame.render_widget(Paragraph::new(key_line), content_rows[2]);
 
     frame.render_widget(
-        Paragraph::new("  next: install optional agent integrations for more reliable state")
-            .style(Style::default().fg(app.palette.overlay1)),
+        Paragraph::new(
+            "  Mouse works too: click, drag panes, right-click for menus.\n  Press → to set up agent integrations (optional).",
+        )
+        .style(Style::default().fg(app.palette.overlay1)),
         content_rows[3],
     );
 

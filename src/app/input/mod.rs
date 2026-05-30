@@ -23,6 +23,7 @@ enum WheelRouting {
 const WORKSPACE_DRAG_THRESHOLD: u16 = 1;
 const TAB_DRAG_THRESHOLD: u16 = 1;
 
+mod command_palette;
 mod copy_mode;
 mod modal;
 mod mouse;
@@ -61,13 +62,16 @@ impl App {
             Mode::Prefix => self.handle_prefix_key(key),
             Mode::Navigate => self.handle_navigate_key(key),
             Mode::Copy => self.handle_copy_mode_key(key),
+            Mode::CommandPalette => self.handle_command_palette_key(key),
             _ => {
                 let key_event = key.as_key_event();
                 match self.state.mode {
                     Mode::Onboarding => self.handle_onboarding_key(key_event),
                     Mode::ReleaseNotes => self.handle_release_notes_key(key_event),
                     Mode::ProductAnnouncement => self.handle_product_announcement_key(key_event),
-                    Mode::Prefix | Mode::Navigate | Mode::Copy => unreachable!(),
+                    Mode::Prefix | Mode::Navigate | Mode::Copy | Mode::CommandPalette => {
+                        unreachable!()
+                    }
                     Mode::RenameWorkspace | Mode::RenameTab | Mode::RenamePane => {
                         handle_rename_key(&mut self.state, key_event)
                     }
@@ -109,12 +113,15 @@ impl App {
 
     pub(crate) fn handle_onboarding_key(&mut self, key: KeyEvent) {
         match key.code {
+            // Secondary path: set up agent integrations.
             KeyCode::Right | KeyCode::Char('l') => self.open_settings_from_onboarding(),
             _ => {
                 if let Some(ModalAction::Continue) =
                     modal_action_from_key(&key, ONBOARDING_WELCOME_ACTIONS)
                 {
-                    self.open_settings_from_onboarding();
+                    // Primary path: hand the user straight to creating their
+                    // first workspace, not into the Settings screen.
+                    self.complete_onboarding_to_workspace();
                 }
             }
         }

@@ -439,6 +439,7 @@ impl App {
             }),
             keybind_help: state::KeybindHelpState { scroll: 0 },
             navigator: state::NavigatorState::default(),
+            command_palette: state::CommandPaletteState::default(),
             copy_mode: None,
             workspace_scroll: 0,
             agent_panel_scroll: 0,
@@ -455,6 +456,7 @@ impl App {
                 tab_scroll_right_hit_area: Rect::default(),
                 new_tab_hit_area: Rect::default(),
                 terminal_area: Rect::default(),
+                status_bar_rect: Rect::default(),
                 mobile_header_rect: Rect::default(),
                 mobile_menu_hit_area: Rect::default(),
                 toast_hit_area: Rect::default(),
@@ -698,7 +700,7 @@ impl App {
 
             if self.state.request_complete_onboarding {
                 self.state.request_complete_onboarding = false;
-                self.open_settings_from_onboarding();
+                self.complete_onboarding_to_workspace();
                 needs_render = true;
             }
 
@@ -959,6 +961,19 @@ impl App {
         self.mark_onboarding_complete();
         self.refresh_integration_recommendations();
         crate::app::input::open_settings_at(&mut self.state, state::SettingsSection::Integrations);
+    }
+
+    /// Primary onboarding exit: dismiss the modal and land on the workspace
+    /// surface (the empty welcome panel when there are none yet), so the next
+    /// thing the user does is create a workspace rather than read Settings.
+    pub(crate) fn complete_onboarding_to_workspace(&mut self) {
+        self.mark_onboarding_complete();
+        self.refresh_integration_recommendations();
+        self.state.mode = if self.state.active.is_some() {
+            Mode::Terminal
+        } else {
+            Mode::Navigate
+        };
     }
 
     pub(crate) fn refresh_integration_recommendations(&mut self) {
@@ -1360,6 +1375,9 @@ impl App {
             }
             Mode::Navigator => {
                 input::handle_navigator_key(&mut self.state, key_event);
+            }
+            Mode::CommandPalette => {
+                self.handle_command_palette_key(key);
             }
             Mode::Terminal => {
                 // Should not be called in terminal mode.
@@ -3353,6 +3371,19 @@ last_pane = "prefix+tab"
         app.state.mode = Mode::Onboarding;
 
         app.route_client_input(b"\r".to_vec());
+
+        // Enter is the primary path: it now hands the user to workspace
+        // creation (the empty Navigate surface), not into the Settings panel.
+        assert_eq!(app.state.mode, Mode::Navigate);
+    }
+
+    #[test]
+    fn onboarding_secondary_key_opens_integration_settings() {
+        let mut app = test_app();
+        app.state.mode = Mode::Onboarding;
+
+        // Right / l is the secondary path: optional agent integrations.
+        app.route_client_input(b"l".to_vec());
 
         assert_eq!(app.state.mode, Mode::Settings);
         assert_eq!(

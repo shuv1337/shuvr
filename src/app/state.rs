@@ -624,6 +624,8 @@ pub struct ViewState {
     pub tab_scroll_right_hit_area: Rect,
     pub new_tab_hit_area: Rect,
     pub terminal_area: Rect,
+    /// Persistent one-row status/mode bar reserved at the bottom of the screen.
+    pub status_bar_rect: Rect,
     pub mobile_header_rect: Rect,
     pub mobile_menu_hit_area: Rect,
     pub toast_hit_area: Rect,
@@ -653,6 +655,7 @@ pub enum Mode {
     GlobalMenu,
     KeybindHelp,
     Navigator,
+    CommandPalette,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -702,6 +705,15 @@ pub(crate) struct NavigatorState {
     pub search_focused: bool,
     pub state_filter: Option<NavigatorStateFilter>,
     pub expanded_workspaces: std::collections::HashSet<String>,
+}
+
+/// State for the command palette: a fuzzy launcher of actions reachable without
+/// memorizing chords.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct CommandPaletteState {
+    pub query: String,
+    pub selected: usize,
+    pub scroll: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -929,22 +941,34 @@ pub struct ContextMenuState {
 impl ContextMenuState {
     pub fn items(&self) -> &'static [&'static str] {
         match self.kind {
-            ContextMenuKind::Workspace { .. } => &["Rename", "Close"],
+            ContextMenuKind::Workspace { .. } => &["New workspace", "Rename", "Close"],
             ContextMenuKind::GitWorkspace {
                 is_linked_worktree: false,
                 has_worktree_children: false,
                 ..
-            } => &["Rename", "Close", "New worktree", "Open worktree..."],
+            } => &[
+                "New workspace",
+                "Rename",
+                "Close",
+                "New worktree",
+                "Open worktree...",
+            ],
             ContextMenuKind::GitWorkspace {
                 is_linked_worktree: true,
                 ..
-            } => &["Rename", "Close", "Delete worktree checkout..."],
+            } => &[
+                "New workspace",
+                "Rename",
+                "Close",
+                "Delete worktree checkout...",
+            ],
             ContextMenuKind::GitWorkspace {
                 is_linked_worktree: false,
                 has_worktree_children: true,
                 collapsed: true,
                 ..
             } => &[
+                "New workspace",
                 "Rename",
                 "Close group",
                 "New worktree",
@@ -957,6 +981,7 @@ impl ContextMenuState {
                 collapsed: false,
                 ..
             } => &[
+                "New workspace",
                 "Rename",
                 "Close group",
                 "New worktree",
@@ -1098,6 +1123,7 @@ pub struct AppState {
     pub product_announcement: Option<ProductAnnouncementState>,
     pub keybind_help: KeybindHelpState,
     pub navigator: NavigatorState,
+    pub command_palette: CommandPaletteState,
     pub copy_mode: Option<CopyModeState>,
     pub workspace_scroll: usize,
     pub agent_panel_scroll: usize,
@@ -1401,6 +1427,7 @@ impl AppState {
             product_announcement: None,
             keybind_help: KeybindHelpState { scroll: 0 },
             navigator: NavigatorState::default(),
+            command_palette: CommandPaletteState::default(),
             copy_mode: None,
             workspace_scroll: 0,
             agent_panel_scroll: 0,
@@ -1417,6 +1444,7 @@ impl AppState {
                 tab_scroll_right_hit_area: Rect::default(),
                 new_tab_hit_area: Rect::default(),
                 terminal_area: Rect::default(),
+                status_bar_rect: Rect::default(),
                 mobile_header_rect: Rect::default(),
                 mobile_menu_hit_area: Rect::default(),
                 toast_hit_area: Rect::default(),
@@ -1593,7 +1621,12 @@ mod tests {
 
         assert_eq!(
             menu.items(),
-            &["Rename", "Close", "Delete worktree checkout..."]
+            &[
+                "New workspace",
+                "Rename",
+                "Close",
+                "Delete worktree checkout..."
+            ]
         );
     }
 
@@ -1613,7 +1646,13 @@ mod tests {
 
         assert_eq!(
             menu.items(),
-            &["Rename", "Close", "New worktree", "Open worktree..."]
+            &[
+                "New workspace",
+                "Rename",
+                "Close",
+                "New worktree",
+                "Open worktree..."
+            ]
         );
     }
 
@@ -1634,6 +1673,7 @@ mod tests {
         assert_eq!(
             menu.items(),
             &[
+                "New workspace",
                 "Rename",
                 "Close group",
                 "New worktree",

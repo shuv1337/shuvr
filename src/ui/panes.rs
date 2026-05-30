@@ -366,35 +366,61 @@ fn render_selection_highlight(
     }
 }
 
+/// Label shown inside the empty-state "create workspace" button. Kept as a
+/// constant so the renderer and the mouse hit-test agree on its width.
+pub(crate) const EMPTY_CREATE_LABEL: &str = " + Create workspace  ⏎ ";
+
+/// Resolve the new-workspace chord as a concrete key string (e.g. "ctrl+b then
+/// shift+n"). Never returns the jargon token "prefix": the empty state is the
+/// one place a user has no way to know what "prefix" means.
+fn new_workspace_chord(app: &AppState) -> String {
+    let prefix = crate::config::format_key_combo((app.prefix_code, app.prefix_mods));
+    let rhs = app
+        .keybinds
+        .new_workspace
+        .prefix_rhs_label()
+        .unwrap_or_else(|| "shift+n".to_string());
+    format!("{prefix} then {rhs}")
+}
+
 fn render_empty(app: &AppState, frame: &mut Frame, area: Rect) {
     let p = &app.palette;
+
+    let heading = Style::default().fg(p.text).add_modifier(Modifier::BOLD);
+    let body = Style::default().fg(p.overlay1);
+    let dim = Style::default().fg(p.overlay0);
+    let accent = Style::default().fg(p.accent).add_modifier(Modifier::BOLD);
+    let button = Style::default()
+        .fg(panel_contrast_fg(p))
+        .bg(p.accent)
+        .add_modifier(Modifier::BOLD);
+
     let lines = vec![
         Line::from(""),
+        Line::from(Span::styled("  Welcome to shuvr", heading)),
         Line::from(""),
         Line::from(Span::styled(
-            "  No workspaces yet",
-            Style::default().fg(p.overlay0),
-        )),
-        Line::from(""),
-        Line::from(Span::styled(
-            "  A workspace is one project context.",
-            Style::default().fg(p.overlay1),
+            "  A workspace is one project — a repo or folder",
+            body,
         )),
         Line::from(Span::styled(
-            "  Its root pane (top-left) sets the default repo or folder name.",
-            Style::default().fg(p.overlay1),
+            "  with its own tabs, panes, and agents.",
+            body,
         )),
         Line::from(""),
         Line::from(vec![
-            Span::styled("  Press ", Style::default().fg(p.overlay0)),
-            Span::styled(
-                app.keybinds
-                    .new_workspace
-                    .label()
-                    .unwrap_or_else(|| "unset".to_string()),
-                Style::default().fg(p.accent).add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(" to create one", Style::default().fg(p.overlay0)),
+            Span::styled("  ", dim),
+            Span::styled(EMPTY_CREATE_LABEL, button),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  or press ", dim),
+            Span::styled(new_workspace_chord(app), accent),
+        ]),
+        Line::from(vec![
+            Span::styled("  press ", dim),
+            Span::styled("?", accent),
+            Span::styled(" for all keys", dim),
         ]),
     ];
     frame.render_widget(
@@ -405,6 +431,21 @@ fn render_empty(app: &AppState, frame: &mut Frame, area: Rect) {
         ),
         area,
     );
+}
+
+/// Screen rect of the empty-state "create workspace" button, for mouse
+/// hit-testing. Must stay in sync with `render_empty`: one border row plus six
+/// content lines sit above the button, and the label is indented two columns.
+pub(crate) fn empty_state_create_button_rect(area: Rect) -> Rect {
+    let width = EMPTY_CREATE_LABEL.chars().count() as u16;
+    let y = area.y.saturating_add(1 + 6);
+    let x = area.x.saturating_add(1 + 2);
+    // The button is the 7th content line inside a bordered block, so it only
+    // renders when the inner area is tall/wide enough to reach it.
+    if area.width <= 6 || area.height < 9 {
+        return Rect::new(area.x, area.y, 0, 0);
+    }
+    Rect::new(x, y, width.min(area.width.saturating_sub(4)), 1)
 }
 
 #[cfg(test)]

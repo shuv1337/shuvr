@@ -243,7 +243,12 @@ impl App {
 
 impl AppState {
     pub(super) fn onboarding_full_area(&self) -> Rect {
-        self.view.sidebar_rect.union(self.view.terminal_area)
+        // Must equal the full frame the onboarding modal renders against, so the
+        // continue-button hit-test lines up after the status-bar row reservation.
+        self.view
+            .sidebar_rect
+            .union(self.view.terminal_area)
+            .union(self.view.status_bar_rect)
     }
 
     pub(crate) fn navigator_popup_rect(&self) -> Rect {

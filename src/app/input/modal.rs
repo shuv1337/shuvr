@@ -662,6 +662,13 @@ pub(super) fn apply_context_menu_action(
             leave_modal(state);
         }
         (
+            ContextMenuKind::Workspace { .. } | ContextMenuKind::GitWorkspace { .. },
+            Some("New workspace"),
+        ) => {
+            state.request_new_workspace = true;
+            leave_modal(state);
+        }
+        (
             ContextMenuKind::Workspace { ws_idx } | ContextMenuKind::GitWorkspace { ws_idx, .. },
             Some("Rename"),
         ) => {
@@ -1250,7 +1257,9 @@ mod tests {
         };
         let mut terminal_runtimes = crate::terminal::TerminalRuntimeRegistry::new();
 
-        apply_context_menu_action(&mut state, &mut terminal_runtimes, menu, 1);
+        // Items are ["New workspace", "Rename", "Close group", ...]; index 2 is
+        // "Close group".
+        apply_context_menu_action(&mut state, &mut terminal_runtimes, menu, 2);
 
         assert_eq!(state.selected, 0);
         assert_eq!(state.mode, Mode::ConfirmClose);

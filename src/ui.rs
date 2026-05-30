@@ -5,6 +5,7 @@ use ratatui::{
     Frame,
 };
 
+mod command_palette;
 mod dialogs;
 mod keybind_help;
 mod menus;
@@ -20,15 +21,13 @@ mod status;
 mod tabs;
 mod widgets;
 
+use self::command_palette::render_command_palette_overlay;
 use self::dialogs::{
     render_confirm_close_overlay, render_new_linked_worktree_overlay,
     render_open_existing_worktree_overlay, render_remove_worktree_overlay, render_rename_overlay,
 };
 use self::keybind_help::render_keybind_help_overlay;
-use self::menus::{
-    render_context_menu, render_copy_mode_overlay, render_global_launcher_menu,
-    render_navigate_overlay, render_prefix_overlay, render_resize_overlay,
-};
+use self::menus::{render_context_menu, render_global_launcher_menu, render_status_bar};
 use self::mobile::{
     compute_mobile_header_hit_areas, is_mobile_width, mobile_switcher_max_scroll_for_height,
     mobile_toast_banner_rect, render_mobile_header, render_mobile_panel,
@@ -37,6 +36,7 @@ use self::mobile::{
 use self::navigator::render_navigator_overlay;
 pub(crate) use self::onboarding::onboarding_welcome_continue_rect;
 use self::onboarding::render_onboarding_overlay;
+pub(crate) use self::panes::empty_state_create_button_rect;
 use self::panes::{compute_pane_infos, render_panes, resize_tab_panes};
 pub(crate) use self::release_notes::{
     product_announcement_display_lines, release_notes_close_button_rect,
@@ -182,8 +182,18 @@ fn compute_view_internal(
             .clamp(app.sidebar_min_width, app.sidebar_max_width)
     };
 
+    // Reserve the bottom row for the persistent status/mode bar (tmux-style), so
+    // the active pane never has to share its last row with the mode indicator.
+    let (body, status_bar_rect) = if area.height > 1 {
+        let [body, status] =
+            Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).areas(area);
+        (body, status)
+    } else {
+        (area, Rect::default())
+    };
+
     let [sidebar_area, main_area] =
-        Layout::horizontal([Constraint::Length(sidebar_w), Constraint::Min(1)]).areas(area);
+        Layout::horizontal([Constraint::Length(sidebar_w), Constraint::Min(1)]).areas(body);
 
     let has_tabs = app.active.and_then(|i| app.workspaces.get(i)).is_some();
     let (tab_bar_rect, terminal_area) = if has_tabs && main_area.height > 1 {
@@ -265,6 +275,7 @@ fn compute_view_internal(
         tab_scroll_right_hit_area: tab_bar_view.scroll_right_hit_area,
         new_tab_hit_area: tab_bar_view.new_tab_hit_area,
         terminal_area,
+        status_bar_rect,
         mobile_header_rect: Rect::default(),
         mobile_menu_hit_area: Rect::default(),
         toast_hit_area,
@@ -334,6 +345,7 @@ fn compute_mobile_view(
         tab_scroll_right_hit_area: Rect::default(),
         new_tab_hit_area: Rect::default(),
         terminal_area,
+        status_bar_rect: Rect::default(),
         mobile_header_rect: header_rect,
         mobile_menu_hit_area: header_hits.menu,
         toast_hit_area,
@@ -373,6 +385,12 @@ pub fn render_with_runtime_registry(
     // Ambient notifications sit above panes, but below interactive overlays.
     render_notifications(app, frame, terminal_area);
 
+    // The persistent mode bar in the reserved bottom row. Drawn before modal
+    // overlays so full-screen modals dim it along with the rest of the screen.
+    if app.view.layout != ViewLayout::Mobile {
+        render_status_bar(app, frame, app.view.status_bar_rect);
+    }
+
     match app.mode {
         Mode::Onboarding => render_onboarding_overlay(app, frame, frame.area()),
         Mode::ReleaseNotes => render_release_notes_overlay(app, frame, frame.area()),
@@ -380,10 +398,9 @@ pub fn render_with_runtime_registry(
         Mode::Navigate if app.view.layout == ViewLayout::Mobile => {
             render_mobile_panel(app, terminal_runtimes, frame, frame.area())
         }
-        Mode::Navigate => render_navigate_overlay(app, frame, terminal_area),
-        Mode::Prefix => render_prefix_overlay(app, frame, terminal_area),
-        Mode::Copy => render_copy_mode_overlay(app, frame, terminal_area),
-        Mode::Resize => render_resize_overlay(app, frame, terminal_area),
+        // Navigate / Prefix / Copy / Resize indicators are drawn by the
+        // persistent status bar above; nothing extra to overlay here.
+        Mode::Navigate | Mode::Prefix | Mode::Copy | Mode::Resize => {}
         Mode::ConfirmClose => render_confirm_close_overlay(app, frame, terminal_area),
         Mode::ContextMenu => {
             render_context_menu(app, frame);
@@ -400,6 +417,7 @@ pub fn render_with_runtime_registry(
         Mode::GlobalMenu => render_global_launcher_menu(app, frame),
         Mode::KeybindHelp => render_keybind_help_overlay(app, frame),
         Mode::Navigator => render_navigator_overlay(app, frame),
+        Mode::CommandPalette => render_command_palette_overlay(app, frame),
         Mode::Terminal => {}
     }
 }
@@ -983,13 +1001,13 @@ mod tests {
     fn prefix_mode_renders_prefix_indicator() {
         let mut app = crate::app::state::AppState::test_new();
         app.mode = Mode::Prefix;
-        app.view.terminal_area = ratatui::layout::Rect::new(0, 0, 60, 4);
+        app.view.status_bar_rect = ratatui::layout::Rect::new(0, 3, 60, 1);
         let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(60, 4))
             .expect("test terminal");
 
         terminal
-            .draw(|frame| render_prefix_overlay(&app, frame, app.view.terminal_area))
-            .expect("draw prefix overlay");
+            .draw(|frame| render_status_bar(&app, frame, app.view.status_bar_rect))
+            .expect("draw status bar");
 
         let rendered = terminal
             .backend()
