@@ -1,0 +1,63 @@
+{
+  "stage": "interview",
+  "title": "Finish Shuvr Rebrand and Security Hardening",
+  "goalSlug": "finish-shuvr-rebrand-security",
+  "questions": [
+    {
+      "id": "completion_scope",
+      "prompt": "What should this goal consider complete?",
+      "description": "The current worktree has a partial rebrand/security implementation. This locks whether the goal should finish the full plan or stop at a release-ready subset.",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Finish all remaining slices in PLAN-shuvr-rebrand-security-hardening.md, including docs/site/Nix/workflows/tests, and leave the task branch ready for commit after validation.",
+      "recommendedOptionIds": ["full_plan"],
+      "options": [
+        { "id": "full_plan", "label": "Finish full plan" },
+        { "id": "release_subset", "label": "Release-ready subset" },
+        { "id": "security_first", "label": "Security first" }
+      ],
+      "required": true
+    },
+    {
+      "id": "docs_policy",
+      "prompt": "How should historical docs and changelog entries be handled?",
+      "description": "The first implementation pass mechanically renamed historical Herdr references to Shuvr. This may be acceptable for a fork baseline, or it may need attribution/history cleanup.",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Keep product-facing docs fully Shuvr, but review historical changelog/release notes for attribution correctness and avoid pretending old upstream releases were originally Shuvr releases.",
+      "recommendedOptionIds": ["review_history"],
+      "options": [
+        { "id": "review_history", "label": "Review history" },
+        { "id": "rename_all", "label": "Rename everything" },
+        { "id": "preserve_upstream", "label": "Preserve upstream history" }
+      ],
+      "required": true
+    },
+    {
+      "id": "validation_blocker",
+      "prompt": "How should the goal handle the current Zig 0.15.2 validation blocker?",
+      "description": "Full Rust tests currently fail before project compilation because only Zig 0.16.0 is installed, and unpacking Zig 0.15.2 into /tmp failed once with no space left on device.",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Treat full Rust validation as required: install or locate Zig 0.15.2 somewhere with enough space, run the repo validation, and only document a blocker if that still fails after reasonable attempts.",
+      "recommendedOptionIds": ["must_validate"],
+      "options": [
+        { "id": "must_validate", "label": "Require validation" },
+        { "id": "document_blocker", "label": "Document blocker" },
+        { "id": "narrow_checks", "label": "Narrow checks OK" }
+      ],
+      "required": true
+    },
+    {
+      "id": "commit_integration",
+      "prompt": "Should the goal include commit and shared-checkout integration steps?",
+      "description": "AGENTS.md says task worktrees should commit on the task branch, then fast-forward the shared checkout and push origin/master, but only after commit message alignment.",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Include commit preparation and proposed commit messages, but stop for explicit alignment before committing/integrating/pushing.",
+      "recommendedOptionIds": ["prepare_stop"],
+      "options": [
+        { "id": "prepare_stop", "label": "Prepare, then stop" },
+        { "id": "commit_after_alignment", "label": "Commit after alignment" },
+        { "id": "no_commit", "label": "No commit steps" }
+      ],
+      "required": true
+    }
+  ]
+}

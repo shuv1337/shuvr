@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Shuvr Rebrand Implementation Notes</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 920px; margin: 32px auto; line-height: 1.5; color: #161616; }
+    h1, h2 { line-height: 1.2; }
+    code { background: #f2f2f2; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    .status { padding: 12px 14px; background: #eaffea; border: 1px solid #8bcf8b; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Shuvr Rebrand Implementation Notes</h1>
+  <div class="status">
+    <strong>Status:</strong> Implementation and validation are complete for the approved non-website scope. Commit/integration is still pending maintainer alignment on commit messages.
+  </div>
+
+  <h2>Decisions Applied</h2>
+  <ul>
+    <li>Used <code>shuv1337/shuvr</code> as the fork repository slug.</li>
+    <li>Kept Shuvr as a separate namespace: no <code>HERDR_*</code> fallback env vars, no <code>herdr</code> CLI aliases, and no old config/socket migration.</li>
+    <li>Root <code>website/**</code> is out of scope for this goal. Earlier mechanical website edits were restored; staged docs under <code>docs/next/website/**</code> remain updated.</li>
+    <li>Restored <code>AGENTS.md</code> to the governing worktree instructions because the prompt-scoped instructions still use <code>../herdr-worktrees</code>.</li>
+  </ul>
+
+  <h2>Security Work Completed</h2>
+  <ul>
+    <li>Release manifest generation now requires real <code>sha256:</code> checksums and rejects missing or malformed checksums.</li>
+    <li>Local updater and remote bootstrap download paths verify SHA-256 before chmod, install, remote upload, or replacement.</li>
+    <li>Removed the previous placeholder checksum generator from release-facing script code.</li>
+    <li>Hardened socket cleanup so regular files and directories are not removed when a socket path is stale or misconfigured; error text includes path and file type.</li>
+    <li>Session snapshot writes create private directories and set snapshot/history files to <code>0600</code> on Unix.</li>
+    <li>Config/state fallback without HOME/XDG now uses a private unpredictable temp root instead of predictable shared <code>/tmp</code> paths.</li>
+  </ul>
+
+  <h2>Validation</h2>
+  <ul>
+    <li><code>/home/shuv/.local/opt/zig-x86_64-linux-0.15.2/zig version</code>: <code>0.15.2</code>.</li>
+    <li><code>just --version</code>: <code>just 1.51.0</code>.</li>
+    <li><code>cargo nextest --version</code>: <code>cargo-nextest 0.9.137</code>.</li>
+    <li><code>cargo audit --version</code>: <code>cargo-audit-audit 0.22.1</code>.</li>
+    <li><code>cargo fmt --check</code>: passed.</li>
+    <li><code>python3 -m unittest scripts.test_changelog scripts.test_vendor_libghostty_vt</code>: passed, 36 tests.</li>
+    <li><code>ZIG=/home/shuv/.local/opt/zig-x86_64-linux-0.15.2/zig cargo test --locked --all-targets</code>: passed.</li>
+    <li><code>ZIG=/home/shuv/.local/opt/zig-x86_64-linux-0.15.2/zig cargo clippy --all-targets --locked -- -D warnings</code>: passed.</li>
+    <li><code>ZIG=/home/shuv/.local/opt/zig-x86_64-linux-0.15.2/zig just check</code>: passed, including 1705 nextest tests and Python maintenance tests.</li>
+    <li><code>cargo audit</code>: exited 0 with existing allowed warnings for bincode, rand, and unicode-segmentation.</li>
+    <li><code>nix flake check</code>: passed on x86_64-linux; Nix reported other systems omitted as incompatible from this host.</li>
+    <li><code>ZIG=/home/shuv/.local/opt/zig-x86_64-linux-0.15.2/zig cargo build --release --locked</code>: passed.</li>
+    <li><code>./target/release/shuvr --version</code>: <code>shuvr 0.6.5</code>.</li>
+    <li><code>git diff --check</code>: passed.</li>
+  </ul>
+
+  <h2>Documented Deviation</h2>
+  <ul>
+    <li><code>just release-docs-check</code> fails because <code>docs/next/website/src/content/docs/agent-skill.mdx</code> and other staged docs intentionally differ from root <code>website/src/content/docs/**</code>. This is expected under the approved root <code>website/**</code> exclusion; reopening website scope is required for that mirror check to pass.</li>
+  </ul>
+
+  <h2>Commit Follow-Up</h2>
+  <ul>
+    <li>Next step is maintainer alignment on commit grouping/messages before committing, fast-forwarding <code>/home/shuv/repos/shuvr</code>, pushing <code>origin/master</code>, and cleaning up the task worktree/branch.</li>
+  </ul>
+</body>
+</html>
