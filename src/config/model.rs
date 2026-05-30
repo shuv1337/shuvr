@@ -12,7 +12,7 @@ use super::{
 pub enum ToastDelivery {
     #[default]
     Off,
-    Herdr,
+    Shuvr,
     Terminal,
     System,
 }
@@ -87,7 +87,7 @@ pub struct TerminalConfig {
 #[serde(default)]
 pub struct SessionConfig {
     /// Resume supported AI-agent panes into their native conversation sessions
-    /// when restoring a Herdr session. Default: false.
+    /// when restoring a Shuvr session. Default: false.
     pub resume_agents_on_restore: bool,
 }
 
@@ -260,7 +260,7 @@ pub struct IndexedKeysConfig {
 #[derive(Debug, Deserialize)]
 #[serde(default)]
 pub struct WorktreesConfig {
-    /// Root directory under which Herdr creates <repo>/<branch-slug> checkouts.
+    /// Root directory under which Shuvr creates <repo>/<branch-slug> checkouts.
     pub directory: String,
 }
 
@@ -272,9 +272,9 @@ pub struct UiConfig {
     pub sidebar_min_width: u16,
     /// Maximum sidebar width (columns) when expanded. Default: 36.
     pub sidebar_max_width: u16,
-    /// Terminal width at or below which Herdr uses the mobile single-column layout. Default: 64.
+    /// Terminal width at or below which Shuvr uses the mobile single-column layout. Default: 64.
     pub mobile_width_threshold: u16,
-    /// Capture mouse input for Herdr's mouse UI. Default: true.
+    /// Capture mouse input for Shuvr's mouse UI. Default: true.
     pub mouse_capture: bool,
     /// Force a full host-terminal redraw when the outer terminal regains focus. Default: true.
     pub redraw_on_focus_gained: bool,
@@ -335,7 +335,7 @@ pub struct AdvancedConfig {
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct ExperimentalConfig {
-    /// Allow launching herdr inside an existing herdr pane. Default: false.
+    /// Allow launching shuvr inside an existing shuvr pane. Default: false.
     pub allow_nested: bool,
     /// Experimental local Kitty graphics rendering for attached clients. Default: false.
     pub kitty_graphics: bool,
@@ -425,7 +425,7 @@ impl Default for KeysConfig {
 impl Default for WorktreesConfig {
     fn default() -> Self {
         Self {
-            directory: "~/.herdr/worktrees".into(),
+            directory: "~/.shuvr/worktrees".into(),
         }
     }
 }
@@ -481,7 +481,7 @@ impl<'de> Deserialize<'de> for ToastConfig {
 
         let raw = RawToastConfig::deserialize(deserializer)?;
         let legacy_delivery = match raw.enabled {
-            Some(true) => ToastDelivery::Herdr,
+            Some(true) => ToastDelivery::Shuvr,
             Some(false) | None => ToastDelivery::Off,
         };
         let delivery = raw.delivery.unwrap_or(legacy_delivery);
@@ -586,14 +586,14 @@ show_agent_labels_on_pane_borders = true
     #[test]
     fn worktrees_directory_defaults_and_parses() {
         let default_config = Config::default();
-        assert_eq!(default_config.worktrees.directory, "~/.herdr/worktrees");
+        assert_eq!(default_config.worktrees.directory, "~/.shuvr/worktrees");
 
         let toml = r#"
 [worktrees]
-directory = "~/Projects/herdr-worktrees"
+directory = "~/Projects/shuvr-worktrees"
 "#;
         let config: Config = toml::from_str(toml).unwrap();
-        assert_eq!(config.worktrees.directory, "~/Projects/herdr-worktrees");
+        assert_eq!(config.worktrees.directory, "~/Projects/shuvr-worktrees");
     }
 
     #[test]
@@ -760,13 +760,13 @@ delivery = "system"
     }
 
     #[test]
-    fn toast_config_legacy_enabled_true_maps_to_herdr() {
+    fn toast_config_legacy_enabled_true_maps_to_shuvr() {
         let toml = r#"
 [ui.toast]
 enabled = true
 "#;
         let config: Config = toml::from_str(toml).unwrap();
-        assert_eq!(config.ui.toast.delivery, ToastDelivery::Herdr);
+        assert_eq!(config.ui.toast.delivery, ToastDelivery::Shuvr);
     }
 
     #[test]

@@ -1638,19 +1638,19 @@ mod tests {
         crate::app::state::WorktreeOpenState {
             source_workspace_id: "source".into(),
             source_existing_membership: None,
-            source_checkout_path: "/repo/herdr".into(),
-            source_repo_root: "/repo/herdr".into(),
+            source_checkout_path: "/repo/shuvr".into(),
+            source_repo_root: "/repo/shuvr".into(),
             repo_key: "repo-key".into(),
-            repo_name: "herdr".into(),
+            repo_name: "shuvr".into(),
             entries: vec![
                 crate::app::state::WorktreeOpenEntry {
-                    path: "/repo/herdr".into(),
+                    path: "/repo/shuvr".into(),
                     branch: Some("main".into()),
                     is_linked_worktree: false,
                     already_open_ws_idx: Some(0),
                 },
                 crate::app::state::WorktreeOpenEntry {
-                    path: "/repo/herdr-issue".into(),
+                    path: "/repo/shuvr-issue".into(),
                     branch: Some("worktree/issue".into()),
                     is_linked_worktree: true,
                     already_open_ws_idx: None,
@@ -1691,7 +1691,7 @@ mod tests {
         app.state.ensure_test_terminals();
         app.state.active = Some(0);
         app.state.selected = 0;
-        app.state.toast_config.delivery = crate::config::ToastDelivery::Herdr;
+        app.state.toast_config.delivery = crate::config::ToastDelivery::Shuvr;
         let target_terminal_id = app.state.workspaces[1]
             .panes
             .get(&target_pane)
@@ -1871,8 +1871,8 @@ mod tests {
         app.state.mode = Mode::ConfirmRemoveWorktree;
         app.state.worktree_remove = Some(crate::app::state::WorktreeRemoveState {
             workspace_id: "issue".into(),
-            repo_root: "/repo/herdr".into(),
-            path: "/repo/herdr-issue".into(),
+            repo_root: "/repo/shuvr".into(),
+            path: "/repo/shuvr-issue".into(),
             error: None,
             removing: false,
             force_confirmation: false,
@@ -1899,8 +1899,8 @@ mod tests {
         app.state.mode = Mode::ConfirmRemoveWorktree;
         app.state.worktree_remove = Some(crate::app::state::WorktreeRemoveState {
             workspace_id: "issue".into(),
-            repo_root: "/repo/herdr".into(),
-            path: "/repo/herdr-issue".into(),
+            repo_root: "/repo/shuvr".into(),
+            path: "/repo/shuvr-issue".into(),
             error: None,
             removing: false,
             force_confirmation: false,

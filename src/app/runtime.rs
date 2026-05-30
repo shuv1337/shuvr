@@ -212,7 +212,7 @@ impl App {
         {
             let previous_toast = self.state.toast.clone();
             for update in self.state.expire_agent_metadata_at(deadline, now) {
-                self.refresh_new_herdr_toast_context_for_update(&update, &previous_toast);
+                self.refresh_new_shuvr_toast_context_for_update(&update, &previous_toast);
                 self.emit_pane_state_update(&update);
             }
             self.sync_agent_metadata_deadline();

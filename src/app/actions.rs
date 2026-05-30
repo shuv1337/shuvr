@@ -1927,7 +1927,7 @@ impl AppState {
                 self.update_dismissed = true;
                 if matches!(
                     self.toast_config.delivery,
-                    crate::config::ToastDelivery::Herdr
+                    crate::config::ToastDelivery::Shuvr
                 ) {
                     self.toast = Some(ToastNotification {
                         kind: ToastKind::UpdateInstalled,
@@ -2125,7 +2125,7 @@ impl AppState {
 
         if matches!(
             self.toast_config.delivery,
-            crate::config::ToastDelivery::Herdr
+            crate::config::ToastDelivery::Shuvr
         ) {
             if let (Some(agent_label), Some(kind)) = (
                 change.agent_label.as_deref(),
@@ -2244,8 +2244,8 @@ mod tests {
     fn mark_linked_worktree(state: &mut AppState, ws_idx: usize) {
         state.workspaces[ws_idx].worktree_space = Some(crate::workspace::WorktreeSpaceMembership {
             key: "repo-key".into(),
-            label: "herdr".into(),
-            repo_root: "/repo/herdr".into(),
+            label: "shuvr".into(),
+            repo_root: "/repo/shuvr".into(),
             checkout_path: format!("/repo/worktree-{ws_idx}").into(),
             is_linked_worktree: true,
         });
@@ -2257,8 +2257,8 @@ mod tests {
         let root = state.workspaces[0].tabs[0].root_pane;
 
         assert_eq!(
-            notification_context(&state.workspaces[0], "__herdr_projects__", 0, root),
-            "__herdr_projects__ · 1"
+            notification_context(&state.workspaces[0], "__shuvr_projects__", 0, root),
+            "__shuvr_projects__ · 1"
         );
     }
 
@@ -2345,9 +2345,9 @@ mod tests {
                 "./src/app/actions.rs:795",
             ),
             (
-                "open ../herdr-worktrees/issue-1",
-                "herdr",
-                "../herdr-worktrees/issue-1",
+                "open ../shuvr-worktrees/issue-1",
+                "shuvr",
+                "../shuvr-worktrees/issue-1",
             ),
             (
                 "edit src/app/actions.rs,then",
@@ -2378,7 +2378,7 @@ mod tests {
             ),
             ("refs #123 and @owner/name", "#123", "#123"),
             ("refs #123 and @owner/name", "owner", "@owner/name"),
-            ("cargo test --package=herdr", "--package", "--package=herdr"),
+            ("cargo test --package=shuvr", "--package", "--package=shuvr"),
             (
                 "cargo test app::actions::tests",
                 "app::",
@@ -2391,7 +2391,7 @@ mod tests {
             ),
             ("ERROR [worker-1] request_id=abc-123", "worker", "worker-1"),
             (
-                "tmux|newhoo|fixhoo|newmoo|notification|window_bell|herdr",
+                "tmux|newhoo|fixhoo|newmoo|notification|window_bell|shuvr",
                 "newhoo",
                 "newhoo",
             ),
@@ -2423,7 +2423,7 @@ mod tests {
     fn double_click_word_bounds_ignore_delimiters() {
         for (row, click) in [
             (
-                "tmux|newhoo|fixhoo|newmoo|notification|window_bell|herdr",
+                "tmux|newhoo|fixhoo|newmoo|notification|window_bell|shuvr",
                 "|",
             ),
             ("alpha,beta;gamma", ","),
@@ -2592,7 +2592,7 @@ mod tests {
     #[test]
     fn navigator_search_only_matches_visible_row_text() {
         let mut state = app_with_workspaces(&["one"]);
-        state.workspaces[0].identity_cwd = "/tmp/herdr-worktrees/issue-work".into();
+        state.workspaces[0].identity_cwd = "/tmp/shuvr-worktrees/issue-work".into();
 
         state.open_navigator();
         state.navigator.query = "work".into();
@@ -2779,11 +2779,11 @@ mod tests {
     #[test]
     fn update_ready_sets_explicit_upgrade_toast() {
         let mut state = AppState::test_new();
-        state.toast_config.delivery = crate::config::ToastDelivery::Herdr;
+        state.toast_config.delivery = crate::config::ToastDelivery::Shuvr;
 
         let updates = state.handle_app_event(crate::events::AppEvent::UpdateReady {
             version: "0.5.0".into(),
-            install_command: "herdr update".into(),
+            install_command: "shuvr update".into(),
         });
 
         assert!(updates.is_empty());
@@ -2791,7 +2791,7 @@ mod tests {
         assert!(state.latest_release_notes_available);
         let toast = state.toast.as_ref().expect("update toast");
         assert_eq!(toast.title, "v0.5.0 available");
-        assert_eq!(toast.context, "detach, then run `herdr update`");
+        assert_eq!(toast.context, "detach, then run `shuvr update`");
     }
 
     fn mark_agent(state: &mut AppState, ws_idx: usize, tab_idx: usize, pane_id: PaneId) {
@@ -3144,16 +3144,16 @@ mod tests {
         let mut state = app_with_workspaces(&["main", "issue", "notes"]);
         state.workspaces[0].worktree_space = Some(crate::workspace::WorktreeSpaceMembership {
             key: "repo-key".into(),
-            label: "herdr".into(),
-            repo_root: "/repo/herdr".into(),
-            checkout_path: "/repo/herdr".into(),
+            label: "shuvr".into(),
+            repo_root: "/repo/shuvr".into(),
+            checkout_path: "/repo/shuvr".into(),
             is_linked_worktree: false,
         });
         state.workspaces[1].worktree_space = Some(crate::workspace::WorktreeSpaceMembership {
             key: "repo-key".into(),
-            label: "herdr".into(),
-            repo_root: "/repo/herdr".into(),
-            checkout_path: "/repo/herdr-issue".into(),
+            label: "shuvr".into(),
+            repo_root: "/repo/shuvr".into(),
+            checkout_path: "/repo/shuvr-issue".into(),
             is_linked_worktree: true,
         });
         state.selected = 0;
@@ -3419,7 +3419,7 @@ mod tests {
     fn background_waiting_sets_attention_toast() {
         let mut state = app_with_workspaces(&["active", "background"]);
         state.active = Some(0);
-        state.toast_config.delivery = crate::config::ToastDelivery::Herdr;
+        state.toast_config.delivery = crate::config::ToastDelivery::Shuvr;
         let bg_pane_id = *state.workspaces[1].panes.keys().next().unwrap();
 
         state.handle_app_event(AppEvent::StateChanged {
@@ -3443,7 +3443,7 @@ mod tests {
     fn hook_reported_unknown_agent_sets_toast_title_from_label() {
         let mut state = app_with_workspaces(&["active", "background"]);
         state.active = Some(0);
-        state.toast_config.delivery = crate::config::ToastDelivery::Herdr;
+        state.toast_config.delivery = crate::config::ToastDelivery::Shuvr;
         let bg_pane_id = *state.workspaces[1].panes.keys().next().unwrap();
 
         state.handle_app_event(AppEvent::HookStateReported {
@@ -3467,7 +3467,7 @@ mod tests {
     fn visible_blocker_overrides_hook_working_and_notifies() {
         let mut state = app_with_workspaces(&["active", "background"]);
         state.active = Some(0);
-        state.toast_config.delivery = crate::config::ToastDelivery::Herdr;
+        state.toast_config.delivery = crate::config::ToastDelivery::Shuvr;
         let bg_pane_id = *state.workspaces[1].panes.keys().next().unwrap();
         let bg_terminal_id = state.workspaces[1]
             .panes
@@ -3488,7 +3488,7 @@ mod tests {
         });
         state.handle_app_event(AppEvent::HookStateReported {
             pane_id: bg_pane_id,
-            source: "herdr:codex".into(),
+            source: "shuvr:codex".into(),
             agent_label: "codex".into(),
             state: AgentState::Working,
             message: None,
@@ -3518,7 +3518,7 @@ mod tests {
     fn visible_idle_waits_before_overriding_claude_hook_working() {
         let mut state = app_with_workspaces(&["active", "background"]);
         state.active = Some(0);
-        state.toast_config.delivery = crate::config::ToastDelivery::Herdr;
+        state.toast_config.delivery = crate::config::ToastDelivery::Shuvr;
         let bg_pane_id = *state.workspaces[1].panes.keys().next().unwrap();
         let bg_terminal_id = state.workspaces[1]
             .panes
@@ -3539,7 +3539,7 @@ mod tests {
         });
         state.handle_app_event(AppEvent::HookStateReported {
             pane_id: bg_pane_id,
-            source: "herdr:claude".into(),
+            source: "shuvr:claude".into(),
             agent_label: "claude".into(),
             state: AgentState::Working,
             message: None,
@@ -3570,7 +3570,7 @@ mod tests {
 
         let first_updates = state.handle_app_event(AppEvent::HookStateReported {
             pane_id,
-            source: "herdr:pi".into(),
+            source: "shuvr:pi".into(),
             agent_label: "pi".into(),
             state: AgentState::Working,
             message: None,
@@ -3583,7 +3583,7 @@ mod tests {
 
         let second_updates = state.handle_app_event(AppEvent::HookStateReported {
             pane_id,
-            source: "herdr:pi".into(),
+            source: "shuvr:pi".into(),
             agent_label: "pi".into(),
             state: AgentState::Working,
             message: None,
@@ -3600,7 +3600,7 @@ mod tests {
     fn background_idle_sets_finished_toast() {
         let mut state = app_with_workspaces(&["active", "background"]);
         state.active = Some(0);
-        state.toast_config.delivery = crate::config::ToastDelivery::Herdr;
+        state.toast_config.delivery = crate::config::ToastDelivery::Shuvr;
         let bg_pane_id = *state.workspaces[1].panes.keys().next().unwrap();
         let bg_terminal_id = state.workspaces[1]
             .panes
@@ -3634,7 +3634,7 @@ mod tests {
     fn background_toast_includes_tab_name_when_workspace_has_multiple_tabs() {
         let mut state = app_with_workspaces(&["active", "background"]);
         state.active = Some(0);
-        state.toast_config.delivery = crate::config::ToastDelivery::Herdr;
+        state.toast_config.delivery = crate::config::ToastDelivery::Shuvr;
         state.workspaces[1].tabs[0].set_custom_name("main".into());
         let second_tab = state.workspaces[1].test_add_tab(Some("logs"));
         state.ensure_test_terminals();
@@ -3661,7 +3661,7 @@ mod tests {
     fn background_tab_in_active_workspace_still_sets_toast() {
         let mut state = app_with_workspaces(&["active"]);
         state.active = Some(0);
-        state.toast_config.delivery = crate::config::ToastDelivery::Herdr;
+        state.toast_config.delivery = crate::config::ToastDelivery::Shuvr;
         state.workspaces[0].tabs[0].set_custom_name("main".into());
         let second_tab = state.workspaces[0].test_add_tab(Some("logs"));
         state.ensure_test_terminals();
@@ -3688,7 +3688,7 @@ mod tests {
     fn active_workspace_active_tab_does_not_set_toast() {
         let mut state = app_with_workspaces(&["active"]);
         state.active = Some(0);
-        state.toast_config.delivery = crate::config::ToastDelivery::Herdr;
+        state.toast_config.delivery = crate::config::ToastDelivery::Shuvr;
         let pane_id = *state.workspaces[0].panes.keys().next().unwrap();
 
         state.handle_app_event(AppEvent::StateChanged {
@@ -3706,11 +3706,11 @@ mod tests {
     }
 
     #[test]
-    fn active_workspace_active_tab_keeps_herdr_toast_suppressed_when_outer_terminal_is_unfocused() {
+    fn active_workspace_active_tab_keeps_shuvr_toast_suppressed_when_outer_terminal_is_unfocused() {
         let mut state = app_with_workspaces(&["active"]);
         state.active = Some(0);
         state.outer_terminal_focus = Some(false);
-        state.toast_config.delivery = crate::config::ToastDelivery::Herdr;
+        state.toast_config.delivery = crate::config::ToastDelivery::Shuvr;
         let pane_id = *state.workspaces[0].panes.keys().next().unwrap();
 
         state.handle_app_event(AppEvent::StateChanged {
@@ -3738,11 +3738,11 @@ mod tests {
     #[test]
     fn update_ready_sets_manual_update_toast() {
         let mut state = AppState::test_new();
-        state.toast_config.delivery = crate::config::ToastDelivery::Herdr;
+        state.toast_config.delivery = crate::config::ToastDelivery::Shuvr;
 
         let updates = state.handle_app_event(AppEvent::UpdateReady {
             version: "0.5.0".into(),
-            install_command: "herdr update".into(),
+            install_command: "shuvr update".into(),
         });
 
         assert!(updates.is_empty());
@@ -3752,27 +3752,27 @@ mod tests {
         let toast = state.toast.as_ref().expect("update toast");
         assert_eq!(toast.kind, ToastKind::UpdateInstalled);
         assert_eq!(toast.title, "v0.5.0 available");
-        assert_eq!(toast.context, "detach, then run `herdr update`");
+        assert_eq!(toast.context, "detach, then run `shuvr update`");
     }
 
     #[test]
     fn update_ready_uses_event_install_command_in_toast() {
         let mut state = AppState::test_new();
-        state.toast_config.delivery = crate::config::ToastDelivery::Herdr;
+        state.toast_config.delivery = crate::config::ToastDelivery::Shuvr;
 
         state.handle_app_event(AppEvent::UpdateReady {
             version: "0.5.0".into(),
-            install_command: "brew update && brew upgrade herdr".into(),
+            install_command: "brew update && brew upgrade shuvr".into(),
         });
 
         assert_eq!(
             state.update_install_command,
-            "brew update && brew upgrade herdr"
+            "brew update && brew upgrade shuvr"
         );
         let toast = state.toast.as_ref().expect("update toast");
         assert_eq!(
             toast.context,
-            "detach, then run `brew update && brew upgrade herdr`"
+            "detach, then run `brew update && brew upgrade shuvr`"
         );
     }
 

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-pub const SESSION_ENV_VAR: &str = "HERDR_SESSION";
+pub const SESSION_ENV_VAR: &str = "SHUVR_SESSION";
 pub const DEFAULT_SESSION_NAME: &str = "default";
 
 const MAX_SESSION_NAME_LEN: usize = 64;
@@ -39,10 +39,10 @@ pub fn configure_from_args(args: &[String]) -> Result<Vec<String>, String> {
             return Ok(args.to_vec());
         }
         let Some(name) = args.get(3) else {
-            return Err("usage: herdr session attach <name>".to_string());
+            return Err("usage: shuvr session attach <name>".to_string());
         };
         if args.len() != 4 {
-            return Err("usage: herdr session attach <name>".to_string());
+            return Err("usage: shuvr session attach <name>".to_string());
         }
         apply_explicit_name(name)?;
         return Ok(cleaned);
@@ -95,8 +95,8 @@ pub fn active_name() -> Option<String> {
 
 pub fn local_attach_command() -> String {
     match active_name() {
-        Some(name) => format!("herdr session attach {name}"),
-        None => "herdr".to_string(),
+        Some(name) => format!("shuvr session attach {name}"),
+        None => "shuvr".to_string(),
     }
 }
 
@@ -106,8 +106,8 @@ pub fn local_stop_command() -> String {
 
 pub fn stop_command_for(name: Option<&str>) -> String {
     match name {
-        Some(name) => format!("herdr session stop {name}"),
-        None => "herdr server stop".to_string(),
+        Some(name) => format!("shuvr session stop {name}"),
+        None => "shuvr server stop".to_string(),
     }
 }
 
@@ -133,7 +133,7 @@ pub fn data_dir_for(name: Option<&str>) -> PathBuf {
 }
 
 pub fn api_socket_path_for(name: Option<&str>) -> PathBuf {
-    data_dir_for(name).join("herdr.sock")
+    data_dir_for(name).join("shuvr.sock")
 }
 
 pub fn active_api_socket_path() -> PathBuf {
@@ -147,7 +147,7 @@ pub fn active_api_socket_path() -> PathBuf {
 }
 
 pub fn client_socket_path_for(name: Option<&str>) -> PathBuf {
-    data_dir_for(name).join("herdr-client.sock")
+    data_dir_for(name).join("shuvr-client.sock")
 }
 
 pub fn list_sessions() -> std::io::Result<Vec<SessionInfo>> {
@@ -497,7 +497,7 @@ mod tests {
         std::env::remove_var(SESSION_ENV_VAR);
         clear_explicit_session_for_test();
         let args = vec![
-            "herdr".to_string(),
+            "shuvr".to_string(),
             "--session".to_string(),
             "work".to_string(),
             "workspace".to_string(),
@@ -508,7 +508,7 @@ mod tests {
 
         assert_eq!(std::env::var(SESSION_ENV_VAR).as_deref(), Ok("work"));
         assert!(explicit_session_requested());
-        assert_eq!(cleaned, vec!["herdr", "workspace", "list"]);
+        assert_eq!(cleaned, vec!["shuvr", "workspace", "list"]);
         std::env::remove_var(SESSION_ENV_VAR);
         clear_explicit_session_for_test();
     }
@@ -519,7 +519,7 @@ mod tests {
         std::env::remove_var(SESSION_ENV_VAR);
         clear_explicit_session_for_test();
         let args = vec![
-            "herdr".to_string(),
+            "shuvr".to_string(),
             "server".to_string(),
             "stop".to_string(),
             "--session=api".to_string(),
@@ -529,7 +529,7 @@ mod tests {
 
         assert_eq!(std::env::var(SESSION_ENV_VAR).as_deref(), Ok("api"));
         assert!(explicit_session_requested());
-        assert_eq!(cleaned, vec!["herdr", "server", "stop"]);
+        assert_eq!(cleaned, vec!["shuvr", "server", "stop"]);
         std::env::remove_var(SESSION_ENV_VAR);
         clear_explicit_session_for_test();
     }
@@ -541,7 +541,7 @@ mod tests {
         std::env::set_var(crate::api::SOCKET_PATH_ENV_VAR, "/tmp/inherited.sock");
         clear_explicit_session_for_test();
         let args = vec![
-            "herdr".to_string(),
+            "shuvr".to_string(),
             "session".to_string(),
             "attach".to_string(),
             "work".to_string(),
@@ -551,7 +551,7 @@ mod tests {
 
         assert_eq!(std::env::var(SESSION_ENV_VAR).as_deref(), Ok("work"));
         assert!(explicit_session_requested());
-        assert_eq!(cleaned, vec!["herdr"]);
+        assert_eq!(cleaned, vec!["shuvr"]);
         std::env::remove_var(SESSION_ENV_VAR);
         std::env::remove_var(crate::api::SOCKET_PATH_ENV_VAR);
         clear_explicit_session_for_test();
@@ -563,7 +563,7 @@ mod tests {
         std::env::remove_var(SESSION_ENV_VAR);
         clear_explicit_session_for_test();
         let args = vec![
-            "herdr".to_string(),
+            "shuvr".to_string(),
             "session".to_string(),
             "attach".to_string(),
             "-h".to_string(),
@@ -579,13 +579,13 @@ mod tests {
     fn configure_from_args_maps_default_session_name_to_default_path() {
         let _guard = env_lock().lock().unwrap();
         let config_home =
-            std::env::temp_dir().join(format!("herdr-session-default-{}", std::process::id()));
+            std::env::temp_dir().join(format!("shuvr-session-default-{}", std::process::id()));
         std::env::set_var("XDG_CONFIG_HOME", &config_home);
         std::env::set_var(SESSION_ENV_VAR, "work");
         clear_explicit_session_for_test();
         std::env::set_var(crate::api::SOCKET_PATH_ENV_VAR, "/tmp/inherited.sock");
         let args = vec![
-            "herdr".to_string(),
+            "shuvr".to_string(),
             "--session".to_string(),
             DEFAULT_SESSION_NAME.to_string(),
             "workspace".to_string(),
@@ -594,14 +594,14 @@ mod tests {
 
         let cleaned = configure_from_args(&args).unwrap();
 
-        assert_eq!(cleaned, vec!["herdr", "workspace", "list"]);
+        assert_eq!(cleaned, vec!["shuvr", "workspace", "list"]);
         assert!(std::env::var(SESSION_ENV_VAR).is_err());
         assert!(explicit_session_requested());
         assert_eq!(
             active_api_socket_path(),
             config_home
                 .join(crate::config::app_dir_name())
-                .join("herdr.sock")
+                .join("shuvr.sock")
         );
         std::env::remove_var("XDG_CONFIG_HOME");
         std::env::remove_var(SESSION_ENV_VAR);
@@ -615,14 +615,14 @@ mod tests {
         std::env::set_var(SESSION_ENV_VAR, "env-session");
         EXPLICIT_SESSION_REQUESTED.store(true, Ordering::Relaxed);
         let args = vec![
-            "herdr".to_string(),
+            "shuvr".to_string(),
             "workspace".to_string(),
             "list".to_string(),
         ];
 
         let cleaned = configure_from_args(&args).unwrap();
 
-        assert_eq!(cleaned, vec!["herdr", "workspace", "list"]);
+        assert_eq!(cleaned, vec!["shuvr", "workspace", "list"]);
         assert_eq!(std::env::var(SESSION_ENV_VAR).as_deref(), Ok("env-session"));
         assert!(!explicit_session_requested());
         std::env::remove_var(SESSION_ENV_VAR);
@@ -632,27 +632,27 @@ mod tests {
     fn env_default_session_name_uses_default_path() {
         let _guard = env_lock().lock().unwrap();
         let config_home =
-            std::env::temp_dir().join(format!("herdr-env-session-default-{}", std::process::id()));
+            std::env::temp_dir().join(format!("shuvr-env-session-default-{}", std::process::id()));
         std::env::set_var("XDG_CONFIG_HOME", &config_home);
         std::env::remove_var(crate::api::SOCKET_PATH_ENV_VAR);
         std::env::set_var(SESSION_ENV_VAR, DEFAULT_SESSION_NAME);
         EXPLICIT_SESSION_REQUESTED.store(true, Ordering::Relaxed);
         let args = vec![
-            "herdr".to_string(),
+            "shuvr".to_string(),
             "workspace".to_string(),
             "list".to_string(),
         ];
 
         let cleaned = configure_from_args(&args).unwrap();
 
-        assert_eq!(cleaned, vec!["herdr", "workspace", "list"]);
+        assert_eq!(cleaned, vec!["shuvr", "workspace", "list"]);
         assert!(std::env::var(SESSION_ENV_VAR).is_err());
         assert!(!explicit_session_requested());
         assert_eq!(
             active_api_socket_path(),
             config_home
                 .join(crate::config::app_dir_name())
-                .join("herdr.sock")
+                .join("shuvr.sock")
         );
         std::env::remove_var("XDG_CONFIG_HOME");
         std::env::remove_var(SESSION_ENV_VAR);
@@ -665,7 +665,7 @@ mod tests {
         let _guard = env_lock().lock().unwrap();
         std::env::remove_var(SESSION_ENV_VAR);
 
-        assert_eq!(local_attach_command(), "herdr");
+        assert_eq!(local_attach_command(), "shuvr");
     }
 
     #[test]
@@ -673,7 +673,7 @@ mod tests {
         let _guard = env_lock().lock().unwrap();
         std::env::set_var(SESSION_ENV_VAR, "work");
 
-        assert_eq!(local_attach_command(), "herdr session attach work");
+        assert_eq!(local_attach_command(), "shuvr session attach work");
 
         std::env::remove_var(SESSION_ENV_VAR);
     }
@@ -683,7 +683,7 @@ mod tests {
         let _guard = env_lock().lock().unwrap();
         std::env::remove_var(SESSION_ENV_VAR);
 
-        assert_eq!(local_stop_command(), "herdr server stop");
+        assert_eq!(local_stop_command(), "shuvr server stop");
 
         std::env::remove_var(SESSION_ENV_VAR);
     }
@@ -693,7 +693,7 @@ mod tests {
         let _guard = env_lock().lock().unwrap();
         std::env::set_var(SESSION_ENV_VAR, "work");
 
-        assert_eq!(local_stop_command(), "herdr session stop work");
+        assert_eq!(local_stop_command(), "shuvr session stop work");
 
         std::env::remove_var(SESSION_ENV_VAR);
     }
@@ -702,7 +702,7 @@ mod tests {
     fn explicit_session_socket_ignores_inherited_socket_override() {
         let _guard = env_lock().lock().unwrap();
         let config_home =
-            std::env::temp_dir().join(format!("herdr-session-precedence-{}", std::process::id()));
+            std::env::temp_dir().join(format!("shuvr-session-precedence-{}", std::process::id()));
         std::env::set_var("XDG_CONFIG_HOME", &config_home);
         std::env::set_var(SESSION_ENV_VAR, "work");
         EXPLICIT_SESSION_REQUESTED.store(true, Ordering::Relaxed);
@@ -716,7 +716,7 @@ mod tests {
                 .join(crate::config::app_dir_name())
                 .join("sessions")
                 .join("work")
-                .join("herdr.sock")
+                .join("shuvr.sock")
         );
         std::env::remove_var("XDG_CONFIG_HOME");
         std::env::remove_var(SESSION_ENV_VAR);
@@ -746,18 +746,18 @@ mod tests {
         let _guard = env_lock().lock().unwrap();
         std::env::set_var(SESSION_ENV_VAR, "bad/name");
         clear_explicit_session_for_test();
-        std::env::set_var(crate::api::SOCKET_PATH_ENV_VAR, "/tmp/herdr.sock");
+        std::env::set_var(crate::api::SOCKET_PATH_ENV_VAR, "/tmp/shuvr.sock");
         let args = vec![
-            "herdr".to_string(),
+            "shuvr".to_string(),
             "workspace".to_string(),
             "list".to_string(),
         ];
 
         let cleaned = configure_from_args(&args).unwrap();
 
-        assert_eq!(cleaned, vec!["herdr", "workspace", "list"]);
+        assert_eq!(cleaned, vec!["shuvr", "workspace", "list"]);
         assert!(!explicit_session_requested());
-        assert_eq!(active_api_socket_path(), PathBuf::from("/tmp/herdr.sock"));
+        assert_eq!(active_api_socket_path(), PathBuf::from("/tmp/shuvr.sock"));
         assert_eq!(std::env::var(SESSION_ENV_VAR).as_deref(), Ok("bad/name"));
 
         std::env::remove_var(SESSION_ENV_VAR);
@@ -839,7 +839,7 @@ mod tests {
     fn list_sessions_skips_reserved_default_directory() {
         let _guard = env_lock().lock().unwrap();
         let config_home =
-            std::env::temp_dir().join(format!("herdr-session-list-{}", std::process::id()));
+            std::env::temp_dir().join(format!("shuvr-session-list-{}", std::process::id()));
         let sessions_dir = config_home
             .join(crate::config::app_dir_name())
             .join("sessions");

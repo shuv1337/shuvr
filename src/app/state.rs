@@ -1120,7 +1120,7 @@ pub struct AppState {
     pub config_diagnostic: Option<String>,
     pub toast: Option<ToastNotification>,
     pub copy_feedback: Option<CopyFeedback>,
-    /// Last reported focus state for the outer terminal hosting herdr.
+    /// Last reported focus state for the outer terminal hosting shuvr.
     /// None means unsupported or not yet reported, which preserves active-pane suppression.
     pub outer_terminal_focus: Option<bool>,
     // Config
@@ -1137,7 +1137,7 @@ pub struct AppState {
     /// Ratio of sidebar height allocated to the workspaces section.
     pub sidebar_section_split: f32,
     pub agent_panel_scope: AgentPanelScope,
-    /// Capture mouse input for Herdr's own mouse UI. When false, Herdr only
+    /// Capture mouse input for Shuvr's own mouse UI. When false, Shuvr only
     /// captures mouse while the focused pane app requests mouse reporting.
     pub mouse_capture: bool,
     pub redraw_on_focus_gained: bool,
@@ -1392,7 +1392,7 @@ impl AppState {
             worktree_create: None,
             worktree_open: None,
             worktree_remove: None,
-            worktree_directory: std::path::PathBuf::from("/tmp/herdr-worktrees"),
+            worktree_directory: std::path::PathBuf::from("/tmp/shuvr-worktrees"),
             collapsed_space_keys: std::collections::HashSet::new(),
             request_complete_onboarding: false,
             name_input: String::new(),
@@ -1430,7 +1430,7 @@ impl AppState {
             selection_autoscroll: None,
             context_menu: None,
             update_available: None,
-            update_install_command: "herdr update".into(),
+            update_install_command: "shuvr update".into(),
             latest_release_notes_available: false,
             update_dismissed: false,
             config_diagnostic: None,

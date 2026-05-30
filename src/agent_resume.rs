@@ -102,27 +102,27 @@ pub fn plan(source: &str, agent: &str, session_ref: &AgentSessionRef) -> Option<
     }
 
     let argv = match (source, agent, session_ref.kind) {
-        ("herdr:claude", "claude", AgentSessionRefKind::Id) => {
+        ("shuvr:claude", "claude", AgentSessionRefKind::Id) => {
             vec![
                 "claude".into(),
                 "--resume".into(),
                 session_ref.value.clone(),
             ]
         }
-        ("herdr:codex", "codex", AgentSessionRefKind::Id) => {
+        ("shuvr:codex", "codex", AgentSessionRefKind::Id) => {
             vec!["codex".into(), "resume".into(), session_ref.value.clone()]
         }
-        ("herdr:pi", "pi", AgentSessionRefKind::Path | AgentSessionRefKind::Id) => {
+        ("shuvr:pi", "pi", AgentSessionRefKind::Path | AgentSessionRefKind::Id) => {
             vec!["pi".into(), "--session".into(), session_ref.value.clone()]
         }
-        ("herdr:hermes", "hermes", AgentSessionRefKind::Id) => {
+        ("shuvr:hermes", "hermes", AgentSessionRefKind::Id) => {
             vec![
                 "hermes".into(),
                 "--resume".into(),
                 session_ref.value.clone(),
             ]
         }
-        ("herdr:opencode", "opencode", AgentSessionRefKind::Id) => {
+        ("shuvr:opencode", "opencode", AgentSessionRefKind::Id) => {
             vec![
                 "opencode".into(),
                 "--session".into(),
@@ -149,11 +149,11 @@ pub fn dedupe_key(source: &str, agent: &str, session_ref: &AgentSessionRef) -> S
 fn is_official_agent_source(source: &str, agent: &str) -> bool {
     matches!(
         (source, agent),
-        ("herdr:claude", "claude")
-            | ("herdr:codex", "codex")
-            | ("herdr:pi", "pi")
-            | ("herdr:hermes", "hermes")
-            | ("herdr:opencode", "opencode")
+        ("shuvr:claude", "claude")
+            | ("shuvr:codex", "codex")
+            | ("shuvr:pi", "pi")
+            | ("shuvr:hermes", "hermes")
+            | ("shuvr:opencode", "opencode")
     )
 }
 
@@ -176,7 +176,7 @@ mod tests {
     fn planner_allows_supported_agents() {
         assert_eq!(
             plan(
-                "herdr:claude",
+                "shuvr:claude",
                 "claude",
                 &AgentSessionRef::id("claude-session").unwrap()
             )
@@ -186,7 +186,7 @@ mod tests {
         );
         assert_eq!(
             plan(
-                "herdr:codex",
+                "shuvr:codex",
                 "codex",
                 &AgentSessionRef::id("codex-session").unwrap()
             )
@@ -196,7 +196,7 @@ mod tests {
         );
         assert_eq!(
             plan(
-                "herdr:pi",
+                "shuvr:pi",
                 "pi",
                 &AgentSessionRef::path("/tmp/pi-session.jsonl").unwrap()
             )
@@ -206,7 +206,7 @@ mod tests {
         );
         assert_eq!(
             plan(
-                "herdr:hermes",
+                "shuvr:hermes",
                 "hermes",
                 &AgentSessionRef::id("hermes-session").unwrap()
             )
@@ -216,7 +216,7 @@ mod tests {
         );
         assert_eq!(
             plan(
-                "herdr:opencode",
+                "shuvr:opencode",
                 "opencode",
                 &AgentSessionRef::id("opencode-session").unwrap()
             )
@@ -235,7 +235,7 @@ mod tests {
         )
         .is_none());
         assert!(plan(
-            "herdr:claude",
+            "shuvr:claude",
             "claude",
             &AgentSessionRef::path("/tmp/claude-session").unwrap()
         )
@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn report_ref_prefers_pi_path_and_validates_values() {
         let session_ref = session_ref_from_report(
-            "herdr:pi",
+            "shuvr:pi",
             "pi",
             Some("pi-id".into()),
             Some("/tmp/pi-session.jsonl".into()),
@@ -254,14 +254,14 @@ mod tests {
         assert_eq!(session_ref.kind, AgentSessionRefKind::Path);
         assert_eq!(session_ref.value, "/tmp/pi-session.jsonl");
 
-        assert!(session_ref_from_report("herdr:pi", "pi", Some("bad\nid".into()), None).is_none());
+        assert!(session_ref_from_report("shuvr:pi", "pi", Some("bad\nid".into()), None).is_none());
         assert!(
-            session_ref_from_report("herdr:pi", "pi", None, Some("relative.jsonl".into()))
+            session_ref_from_report("shuvr:pi", "pi", None, Some("relative.jsonl".into()))
                 .is_none()
         );
         assert!(session_ref_from_report("custom:pi", "pi", Some("pi-id".into()), None).is_none());
         assert!(session_ref_from_report(
-            "herdr:claude",
+            "shuvr:claude",
             "claude",
             None,
             Some("/tmp/claude-session".into())
@@ -272,33 +272,33 @@ mod tests {
     #[test]
     fn ids_are_data_not_shell_text() {
         let id = "abc; rm -rf /";
-        let plan = plan("herdr:codex", "codex", &AgentSessionRef::id(id).unwrap()).unwrap();
+        let plan = plan("shuvr:codex", "codex", &AgentSessionRef::id(id).unwrap()).unwrap();
         assert_eq!(plan.argv, vec!["codex", "resume", id]);
     }
 
     #[test]
     fn planner_rejects_path_refs_for_id_only_agents() {
         assert!(plan(
-            "herdr:hermes",
+            "shuvr:hermes",
             "hermes",
             &AgentSessionRef::path("/tmp/hermes-session").unwrap()
         )
         .is_none());
         assert!(plan(
-            "herdr:opencode",
+            "shuvr:opencode",
             "opencode",
             &AgentSessionRef::path("/tmp/opencode-session").unwrap()
         )
         .is_none());
         assert!(session_ref_from_snapshot(
-            "herdr:hermes",
+            "shuvr:hermes",
             "hermes",
             AgentSessionRefKind::Id,
             "hermes-session"
         )
         .is_some());
         assert!(session_ref_from_snapshot(
-            "herdr:opencode",
+            "shuvr:opencode",
             "opencode",
             AgentSessionRefKind::Id,
             "opencode-session"

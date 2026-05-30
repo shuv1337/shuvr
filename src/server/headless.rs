@@ -1,9 +1,9 @@
-//! Headless server mode — runs the herdr event loop without a real terminal.
+//! Headless server mode — runs the shuvr event loop without a real terminal.
 //!
 //! The server:
 //! - Does not enter raw mode or read stdin
-//! - Creates and listens on both `herdr.sock` (existing JSON API) and
-//!   `herdr-client.sock` (new binary protocol)
+//! - Creates and listens on both `shuvr.sock` (existing JSON API) and
+//!   `shuvr-client.sock` (new binary protocol)
 //! - Initializes AppState and all PTYs from session restore or fresh state
 //! - Runs the main event loop (drain events, drain API requests, scheduled tasks)
 //! - Renders to a virtual ratatui Buffer in memory
@@ -101,7 +101,7 @@ const CLIENT_ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(250);
 // Headless server
 // ---------------------------------------------------------------------------
 
-/// The headless server — runs the herdr event loop without a real terminal.
+/// The headless server — runs the shuvr event loop without a real terminal.
 pub struct HeadlessServer {
     app: app::App,
     api_tx: Option<api::ApiRequestSender>,
@@ -598,7 +598,7 @@ impl HeadlessServer {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!(
-                    "live handoff supports at most {} panes in one update; close panes or restart herdr normally",
+                    "live handoff supports at most {} panes in one update; close panes or restart shuvr normally",
                     crate::server::handoff::MAX_FDS_PER_HANDOFF
                 ),
             ));
@@ -2038,7 +2038,7 @@ impl HeadlessServer {
         let _ = msg.respond_to.send(response);
 
         // Forward new toast state only when a client-local delivery mode is selected.
-        // Herdr delivery renders the toast in-frame and must not ask clients to
+        // Shuvr delivery renders the toast in-frame and must not ask clients to
         // show a terminal or system notification.
         let toast_after = self.app.state.toast.clone();
         let forwarded_toast_from_state =
@@ -2510,7 +2510,7 @@ impl HeadlessServer {
             let previous_toast = self.app.state.toast.clone();
             for update in self.app.state.expire_agent_metadata_at(deadline, now) {
                 self.app
-                    .refresh_new_herdr_toast_context_for_update(&update, &previous_toast);
+                    .refresh_new_shuvr_toast_context_for_update(&update, &previous_toast);
                 self.app.emit_pane_state_update(&update);
             }
             self.app.sync_agent_metadata_deadline();
@@ -2676,7 +2676,7 @@ pub fn run_server() -> io::Result<()> {
     let _api_server = match api::start_server(api_tx.clone(), event_hub.clone()) {
         Ok(server) => server,
         Err(err) if err.kind() == io::ErrorKind::AddrInUse => {
-            eprintln!("error: herdr server is already running");
+            eprintln!("error: shuvr server is already running");
             eprintln!("api socket: {}", api::socket_path().display());
             std::process::exit(1);
         }
@@ -2715,7 +2715,7 @@ pub fn run_server() -> io::Result<()> {
         ) {
             Ok(server) => server,
             Err(err) if err.kind() == io::ErrorKind::AddrInUse => {
-                eprintln!("error: herdr server is already running");
+                eprintln!("error: shuvr server is already running");
                 eprintln!("client socket: {}", client_socket_path().display());
                 std::process::exit(1);
             }
@@ -2725,7 +2725,7 @@ pub fn run_server() -> io::Result<()> {
         info!(
             api_socket = %api::socket_path().display(),
             client_socket = %client_socket_path().display(),
-            "herdr server started"
+            "shuvr server started"
         );
         print_ready_message(&api::socket_path(), &client_socket_path());
 
@@ -2775,7 +2775,7 @@ fn run_handoff_import_server(socket_path: &Path, token: &str) -> io::Result<()> 
         app.state.local_sound_playback = false;
         app.local_terminal_notifications = false;
         crate::server::handoff::report_restored(&mut received.stream)?;
-        if std::env::var("HERDR_TEST_HANDOFF_IMPORT_FAIL").as_deref() == Ok("after_restored") {
+        if std::env::var("SHUVR_TEST_HANDOFF_IMPORT_FAIL").as_deref() == Ok("after_restored") {
             return Err(io::Error::other(
                 "test handoff import failure after restored",
             ));
@@ -2834,21 +2834,21 @@ fn run_handoff_import_server(_socket_path: &Path, _token: &str) -> io::Result<()
 }
 
 fn print_ready_message(api_socket: &Path, client_socket: &Path) {
-    eprintln!("herdr server running; you can use any herdr CLI command in another terminal.");
+    eprintln!("shuvr server running; you can use any shuvr CLI command in another terminal.");
     eprintln!("api socket: {}", api_socket.display());
     eprintln!("client socket: {}", client_socket.display());
     eprintln!(
         "logs: {}",
         crate::session::data_dir()
-            .join("herdr-server.log")
+            .join("shuvr-server.log")
             .display()
     );
-    eprintln!("did you mean to open the Herdr TUI? run `herdr`; you do not need `herdr server`.");
+    eprintln!("did you mean to open the Shuvr TUI? run `shuvr`; you do not need `shuvr server`.");
 }
 
 /// Initialize logging for the server process.
 fn init_logging() {
-    crate::logging::init_file_logging("herdr-server.log");
+    crate::logging::init_file_logging("shuvr-server.log");
 }
 
 // ---------------------------------------------------------------------------
@@ -2861,8 +2861,10 @@ mod tests {
 
     use crate::app::AppState;
     use crate::protocol::CursorState;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     fn test_headless_server() -> HeadlessServer {
+        static NEXT_TEST_SOCKET_ID: AtomicU64 = AtomicU64::new(0);
         let config = crate::config::Config::default();
         let (_api_tx, api_rx) = tokio::sync::mpsc::unbounded_channel();
         let mut app = crate::app::App::new(&config, true, None, api_rx, api::EventHub::default());
@@ -2870,12 +2872,13 @@ mod tests {
         app.local_terminal_notifications = false;
 
         let dir = std::env::temp_dir().join(format!(
-            "hh-{}-{}",
+            "hh-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_nanos())
-                .unwrap_or(0)
+                .unwrap_or(0),
+            NEXT_TEST_SOCKET_ID.fetch_add(1, Ordering::Relaxed)
         ));
         let _ = fs::create_dir_all(&dir);
         let socket_path = dir.join("client.sock");
@@ -2942,7 +2945,7 @@ mod tests {
                 .event_tx
                 .try_send(AppEvent::UpdateReady {
                     version: format!("4.0.{i}"),
-                    install_command: "herdr install".into(),
+                    install_command: "shuvr install".into(),
                 })
                 .unwrap();
         }
@@ -3096,7 +3099,7 @@ new_tab = "prefix+t"
     #[test]
     fn local_keybinding_client_keeps_local_keybindings_after_settings_save() {
         let path = std::env::temp_dir().join(format!(
-            "herdr-headless-settings-{}-{}.toml",
+            "shuvr-headless-settings-{}-{}.toml",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -3152,7 +3155,7 @@ next_tab = ""
             .any(|binding| binding.label == "prefix+n"));
         assert!(server.app.state.toast.is_none());
         let content = std::fs::read_to_string(&path).unwrap();
-        assert!(content.contains("delivery = \"herdr\""));
+        assert!(content.contains("delivery = \"shuvr\""));
 
         std::env::remove_var(crate::config::CONFIG_PATH_ENV_VAR);
         let _ = std::fs::remove_file(path);
@@ -3161,7 +3164,7 @@ next_tab = ""
     #[test]
     fn invalid_server_keybindings_do_not_cache_local_keybindings_after_settings_save() {
         let path = std::env::temp_dir().join(format!(
-            "herdr-headless-invalid-settings-{}-{}.toml",
+            "shuvr-headless-invalid-settings-{}-{}.toml",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -3497,7 +3500,7 @@ next_tab = ""
         assert!(
             server.handle_internal_event_with_forwarding(AppEvent::HookStateReported {
                 pane_id,
-                source: "herdr:pi".into(),
+                source: "shuvr:pi".into(),
                 agent_label: "pi".into(),
                 state: crate::detect::AgentState::Working,
                 message: None,
@@ -3511,7 +3514,7 @@ next_tab = ""
                 pane_id,
                 source: "user:pi-display".into(),
                 agent_label: Some("pi".into()),
-                applies_to_source: Some("herdr:pi".into()),
+                applies_to_source: Some("shuvr:pi".into()),
                 title: None,
                 display_agent: None,
                 custom_status: Some("short lived".into()),
@@ -4850,7 +4853,7 @@ next_tab = ""
     }
 
     #[test]
-    fn herdr_toast_delivery_keeps_toast_in_frame_without_client_notify() {
+    fn shuvr_toast_delivery_keeps_toast_in_frame_without_client_notify() {
         let mut server = test_headless_server();
         let (client_tx, client_control_rx, _client_rx) = test_client_writer();
 
@@ -4867,11 +4870,11 @@ next_tab = ""
             ),
         );
         server.foreground_client_id = Some(1);
-        server.app.state.toast_config.delivery = crate::config::ToastDelivery::Herdr;
+        server.app.state.toast_config.delivery = crate::config::ToastDelivery::Shuvr;
 
         let changed = server.handle_internal_event_with_forwarding(AppEvent::UpdateReady {
             version: "9.9.9".to_string(),
-            install_command: "herdr update".into(),
+            install_command: "shuvr update".into(),
         });
 
         assert!(changed);
@@ -4880,7 +4883,7 @@ next_tab = ""
             client_control_rx
                 .recv_timeout(Duration::from_millis(50))
                 .is_err(),
-            "herdr delivery should render in-frame instead of forwarding a client-local notification"
+            "shuvr delivery should render in-frame instead of forwarding a client-local notification"
         );
     }
 
@@ -4906,7 +4909,7 @@ next_tab = ""
 
         let changed = server.handle_internal_event_with_forwarding(AppEvent::UpdateReady {
             version: "9.9.9".to_string(),
-            install_command: "herdr update".into(),
+            install_command: "shuvr update".into(),
         });
 
         assert!(changed);
@@ -4917,7 +4920,7 @@ next_tab = ""
         ) {
             ServerMessage::Notify { kind, message } => {
                 assert_eq!(kind, protocol::NotifyKind::SystemToast);
-                assert_eq!(message, "v9.9.9 available: detach, then run `herdr update`");
+                assert_eq!(message, "v9.9.9 available: detach, then run `shuvr update`");
             }
             other => panic!("expected system toast notify, got {other:?}"),
         }
@@ -4944,7 +4947,7 @@ next_tab = ""
             .get_mut(&terminal_id)
             .unwrap()
             .set_hook_authority(
-                "herdr:pi".into(),
+                "shuvr:pi".into(),
                 "pi".into(),
                 crate::detect::AgentState::Working,
                 None,
@@ -4976,7 +4979,7 @@ next_tab = ""
                 id: "stale".into(),
                 method: api::schema::Method::PaneReportAgent(api::schema::PaneReportAgentParams {
                     pane_id: public_pane_id,
-                    source: "herdr:pi".into(),
+                    source: "shuvr:pi".into(),
                     agent: "pi".into(),
                     state: api::schema::PaneAgentState::Idle,
                     message: None,

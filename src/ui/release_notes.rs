@@ -552,11 +552,11 @@ mod tests {
     #[test]
     fn release_notes_inline_code_spans_are_styled_without_backticks() {
         let palette = Palette::catppuccin();
-        let lines = release_notes_lines("- `herdr pane run ...` now works", &palette);
+        let lines = release_notes_lines("- `shuvr pane run ...` now works", &palette);
 
         assert_eq!(lines.len(), 1);
-        assert_eq!(line_text(&lines[0].1), " • herdr pane run ... now works");
-        assert_eq!(lines[0].1.spans[1].content.as_ref(), "herdr pane run ...");
+        assert_eq!(line_text(&lines[0].1), " • shuvr pane run ... now works");
+        assert_eq!(lines[0].1.spans[1].content.as_ref(), "shuvr pane run ...");
         assert_eq!(lines[0].1.spans[1].style.fg, Some(palette.accent));
         assert_eq!(lines[0].1.spans[1].style.bg, Some(palette.surface0));
     }
@@ -580,13 +580,13 @@ mod tests {
     #[test]
     fn release_notes_preview_lines_show_update_steps() {
         let palette = Palette::catppuccin();
-        let lines = release_notes_preview_lines("0.5.0", "herdr update", &palette);
+        let lines = release_notes_preview_lines("0.5.0", "shuvr update", &palette);
 
         assert_eq!(lines.len(), 2);
         assert_eq!(line_text(&lines[0]), "● update ready");
         assert_eq!(
             line_text(&lines[1]),
-            "detach from this session, then run herdr update in your shell"
+            "detach from this session, then run shuvr update in your shell"
         );
         assert_eq!(lines[0].spans[0].style.fg, Some(palette.accent));
         assert_eq!(lines[0].spans[1].style.fg, Some(palette.text));
@@ -597,7 +597,7 @@ mod tests {
         let palette = Palette::catppuccin();
         let area = Rect::new(0, 0, 40, 12);
         let sections =
-            release_notes_sections(area, true, "brew update && brew upgrade herdr", &palette);
+            release_notes_sections(area, true, "brew update && brew upgrade shuvr", &palette);
 
         let instructions = sections
             .instructions
@@ -611,7 +611,7 @@ mod tests {
     fn release_notes_preview_section_keeps_short_install_command_compact() {
         let palette = Palette::catppuccin();
         let area = Rect::new(0, 0, 80, 12);
-        let sections = release_notes_sections(area, true, "herdr update", &palette);
+        let sections = release_notes_sections(area, true, "shuvr update", &palette);
 
         let instructions = sections
             .instructions
@@ -634,7 +634,7 @@ mod tests {
                     frame,
                     area,
                     "0.6.4",
-                    "brew update && brew upgrade herdr",
+                    "brew update && brew upgrade shuvr",
                     &palette,
                 );
             })

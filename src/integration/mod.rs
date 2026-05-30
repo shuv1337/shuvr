@@ -9,36 +9,36 @@ use serde_json::{json, Map, Value};
 
 use crate::layout::PaneId;
 
-pub(crate) const HERDR_PANE_ID_ENV_VAR: &str = "HERDR_PANE_ID";
-const PI_EXTENSION_INSTALL_NAME: &str = "herdr-agent-state.ts";
-const PI_EXTENSION_ASSET: &str = include_str!("assets/pi/herdr-agent-state.ts");
+pub(crate) const SHUVR_PANE_ID_ENV_VAR: &str = "SHUVR_PANE_ID";
+const PI_EXTENSION_INSTALL_NAME: &str = "shuvr-agent-state.ts";
+const PI_EXTENSION_ASSET: &str = include_str!("assets/pi/shuvr-agent-state.ts");
 const PI_INTEGRATION_VERSION: u32 = 2;
-const OMP_EXTENSION_INSTALL_NAME: &str = "herdr-omp-agent-state.ts";
-const OMP_EXTENSION_ASSET: &str = include_str!("assets/omp/herdr-agent-state.ts");
+const OMP_EXTENSION_INSTALL_NAME: &str = "shuvr-omp-agent-state.ts";
+const OMP_EXTENSION_ASSET: &str = include_str!("assets/omp/shuvr-agent-state.ts");
 const OMP_INTEGRATION_VERSION: u32 = 2;
 const PI_CODING_AGENT_DIR_ENV_VAR: &str = "PI_CODING_AGENT_DIR";
-const CLAUDE_HOOK_INSTALL_NAME: &str = "herdr-agent-state.sh";
-const CLAUDE_HOOK_ASSET: &str = include_str!("assets/claude/herdr-agent-state.sh");
+const CLAUDE_HOOK_INSTALL_NAME: &str = "shuvr-agent-state.sh";
+const CLAUDE_HOOK_ASSET: &str = include_str!("assets/claude/shuvr-agent-state.sh");
 const CLAUDE_INTEGRATION_VERSION: u32 = 4;
 const CLAUDE_CONFIG_DIR_ENV_VAR: &str = "CLAUDE_CONFIG_DIR";
-const CODEX_HOOK_INSTALL_NAME: &str = "herdr-agent-state.sh";
-const CODEX_HOOK_ASSET: &str = include_str!("assets/codex/herdr-agent-state.sh");
+const CODEX_HOOK_INSTALL_NAME: &str = "shuvr-agent-state.sh";
+const CODEX_HOOK_ASSET: &str = include_str!("assets/codex/shuvr-agent-state.sh");
 const CODEX_INTEGRATION_VERSION: u32 = 4;
 const CODEX_HOME_ENV_VAR: &str = "CODEX_HOME";
-const OPENCODE_PLUGIN_INSTALL_NAME: &str = "herdr-agent-state.js";
-const OPENCODE_PLUGIN_ASSET: &str = include_str!("assets/opencode/herdr-agent-state.js");
+const OPENCODE_PLUGIN_INSTALL_NAME: &str = "shuvr-agent-state.js";
+const OPENCODE_PLUGIN_ASSET: &str = include_str!("assets/opencode/shuvr-agent-state.js");
 const OPENCODE_INTEGRATION_VERSION: u32 = 3;
-const HERMES_PLUGIN_INSTALL_NAME: &str = "herdr-agent-state";
+const HERMES_PLUGIN_INSTALL_NAME: &str = "shuvr-agent-state";
 const HERMES_PLUGIN_MANIFEST_INSTALL_NAME: &str = "plugin.yaml";
 const HERMES_PLUGIN_INIT_INSTALL_NAME: &str = "__init__.py";
 const HERMES_PLUGIN_MANIFEST_ASSET: &str = include_str!("assets/hermes/plugin.yaml");
 const HERMES_PLUGIN_INIT_ASSET: &str = include_str!("assets/hermes/__init__.py");
 const HERMES_INTEGRATION_VERSION: u32 = 2;
-const QODERCLI_HOOK_INSTALL_NAME: &str = "herdr-agent-state.sh";
-const QODERCLI_HOOK_ASSET: &str = include_str!("assets/qodercli/herdr-agent-state.sh");
+const QODERCLI_HOOK_INSTALL_NAME: &str = "shuvr-agent-state.sh";
+const QODERCLI_HOOK_ASSET: &str = include_str!("assets/qodercli/shuvr-agent-state.sh");
 const QODERCLI_INTEGRATION_VERSION: u32 = 1;
 const QODERCLI_CONFIG_DIR_ENV_VAR: &str = "QODER_CONFIG_DIR";
-const INTEGRATION_VERSION_MARKER: &str = "HERDR_INTEGRATION_VERSION=";
+const INTEGRATION_VERSION_MARKER: &str = "SHUVR_INTEGRATION_VERSION=";
 
 #[derive(Debug)]
 pub(crate) struct ClaudeInstallPaths {
@@ -171,7 +171,7 @@ pub(crate) struct HermesUninstallResult {
 
 pub(crate) fn apply_pane_env(cmd: &mut CommandBuilder, pane_id: PaneId) {
     cmd.env(crate::api::SOCKET_PATH_ENV_VAR, crate::api::socket_path());
-    cmd.env(HERDR_PANE_ID_ENV_VAR, format!("p_{}", pane_id.raw()));
+    cmd.env(SHUVR_PANE_ID_ENV_VAR, format!("p_{}", pane_id.raw()));
 }
 
 pub(crate) fn install_target(
@@ -314,12 +314,12 @@ pub(crate) fn uninstall_target(
             }
             if result.updated_settings {
                 messages.push(format!(
-                    "removed herdr claude hook entries from {}",
+                    "removed shuvr claude hook entries from {}",
                     result.settings_path.display()
                 ));
             } else {
                 messages.push(format!(
-                    "no herdr claude hook entries found in {}",
+                    "no shuvr claude hook entries found in {}",
                     result.settings_path.display()
                 ));
             }
@@ -341,12 +341,12 @@ pub(crate) fn uninstall_target(
             }
             if result.updated_hooks {
                 messages.push(format!(
-                    "removed herdr codex hook entries from {}",
+                    "removed shuvr codex hook entries from {}",
                     result.hooks_path.display()
                 ));
             } else {
                 messages.push(format!(
-                    "no herdr codex hook entries found in {}",
+                    "no shuvr codex hook entries found in {}",
                     result.hooks_path.display()
                 ));
             }
@@ -413,12 +413,12 @@ pub(crate) fn uninstall_target(
             }
             if result.updated_settings {
                 messages.push(format!(
-                    "removed herdr qodercli hook entries from {}",
+                    "removed shuvr qodercli hook entries from {}",
                     result.settings_path.display()
                 ));
             } else {
                 messages.push(format!(
-                    "no herdr qodercli hook entries found in {}",
+                    "no shuvr qodercli hook entries found in {}",
                     result.settings_path.display()
                 ));
             }
@@ -573,7 +573,7 @@ pub(crate) fn integration_update_instructions(
         .iter()
         .map(|target| {
             format!(
-                "`herdr integration install {}`",
+                "`shuvr integration install {}`",
                 integration_target_label(*target)
             )
         })
@@ -597,7 +597,7 @@ pub(crate) fn print_outdated_update_notice() -> bool {
         .map(|integration| integration.target)
         .collect::<Vec<_>>();
     eprintln!(
-        "installed herdr integrations need updating; {}.",
+        "installed shuvr integrations need updating; {}.",
         integration_update_instructions(&targets).replace('`', "")
     );
     true
@@ -690,7 +690,7 @@ fn remove_legacy_pi_extension_from_omp_dir(dir: &Path) -> io::Result<bool> {
     }
 
     let content = fs::read_to_string(&legacy_path)?;
-    if content.contains("HERDR_INTEGRATION_ID=pi") {
+    if content.contains("SHUVR_INTEGRATION_ID=pi") {
         fs::remove_file(legacy_path)?;
         return Ok(true);
     }
@@ -1179,7 +1179,7 @@ pub(crate) fn install_qodercli() -> io::Result<QodercliInstallPaths> {
     let quoted_hook_path = shell_single_quote(&hook_path.display().to_string());
 
     // SubagentStop is intentionally *not* mapped to working: the hook script
-    // returns early on it (mirroring assets/claude/herdr-agent-state.sh) so
+    // returns early on it (mirroring assets/claude/shuvr-agent-state.sh) so
     // that recap/away-summary frames cannot revive an idle pane.
     ensure_command_hook(
         hooks,
@@ -1475,7 +1475,7 @@ fn update_hermes_enabled_plugin(content: &str, enabled: bool) -> String {
         if !result.is_empty() {
             result.push('\n');
         }
-        result.push_str("plugins:\n  enabled:\n    - herdr-agent-state\n");
+        result.push_str("plugins:\n  enabled:\n    - shuvr-agent-state\n");
         return result;
     };
 
@@ -1488,10 +1488,10 @@ fn update_hermes_enabled_plugin(content: &str, enabled: bool) -> String {
 
     if let Some(enabled_index) = enabled_index {
         let line = lines[enabled_index].trim();
-        if line == "enabled: []" || line == "enabled: [] # herdr" {
+        if line == "enabled: []" || line == "enabled: [] # shuvr" {
             if enabled {
                 lines[enabled_index] = "  enabled:".to_string();
-                lines.insert(enabled_index + 1, "    - herdr-agent-state".to_string());
+                lines.insert(enabled_index + 1, "    - shuvr-agent-state".to_string());
             }
             return join_yaml_lines(lines, trailing_newline);
         }
@@ -1511,7 +1511,7 @@ fn update_hermes_enabled_plugin(content: &str, enabled: bool) -> String {
 
         match (enabled, existing_item_index) {
             (true, Some(_)) | (false, None) => return content.to_string(),
-            (true, None) => lines.insert(list_start, "    - herdr-agent-state".to_string()),
+            (true, None) => lines.insert(list_start, "    - shuvr-agent-state".to_string()),
             (false, Some(index)) => {
                 lines.remove(index);
             }
@@ -1521,7 +1521,7 @@ fn update_hermes_enabled_plugin(content: &str, enabled: bool) -> String {
 
     if enabled {
         lines.insert(plugins_index + 1, "  enabled:".to_string());
-        lines.insert(plugins_index + 2, "    - herdr-agent-state".to_string());
+        lines.insert(plugins_index + 2, "    - shuvr-agent-state".to_string());
         return join_yaml_lines(lines, trailing_newline);
     }
 
@@ -1787,7 +1787,7 @@ mod tests {
     fn unique_base() -> PathBuf {
         clear_integration_path_env();
         std::env::temp_dir().join(format!(
-            "herdr-integration-install-test-{}-{}",
+            "shuvr-integration-install-test-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -1831,7 +1831,7 @@ mod tests {
             label: "claude",
             command: "claude",
             available: false,
-            path: PathBuf::from("/tmp/herdr-agent-state.sh"),
+            path: PathBuf::from("/tmp/shuvr-agent-state.sh"),
             state: IntegrationStatusKind::NotInstalled,
         };
         assert!(!recommendation.needs_install());
@@ -1951,7 +1951,7 @@ mod tests {
     }
 
     #[test]
-    fn install_omp_preserves_non_herdr_file_with_pi_install_name() {
+    fn install_omp_preserves_non_shuvr_file_with_pi_install_name() {
         let _lock = integration_env_lock();
         let base = unique_base();
         let home = base.join("home");
@@ -2072,7 +2072,7 @@ mod tests {
         let ext_dir = home.join(".pi/agent/extensions");
         fs::create_dir_all(&ext_dir).unwrap();
         let extension_path = ext_dir.join(PI_EXTENSION_INSTALL_NAME);
-        fs::write(&extension_path, "// installed by herdr\n").unwrap();
+        fs::write(&extension_path, "// installed by shuvr\n").unwrap();
         std::env::set_var("HOME", &home);
 
         let outdated = outdated_installed_integrations();
@@ -2311,7 +2311,7 @@ mod tests {
         let hook_path = claude_hooks_dir.join(CLAUDE_HOOK_INSTALL_NAME);
         fs::write(
             &hook_path,
-            "#!/bin/sh\n# HERDR_INTEGRATION_ID=claude\n# HERDR_INTEGRATION_VERSION=1\n",
+            "#!/bin/sh\n# SHUVR_INTEGRATION_ID=claude\n# SHUVR_INTEGRATION_VERSION=1\n",
         )
         .unwrap();
         std::env::set_var("HOME", &home);
@@ -2341,7 +2341,7 @@ mod tests {
         let hook_path = claude_hooks_dir.join(CLAUDE_HOOK_INSTALL_NAME);
         fs::write(
             &hook_path,
-            "#!/bin/sh\n# HERDR_INTEGRATION_ID=claude\n# HERDR_INTEGRATION_VERSION=2\n",
+            "#!/bin/sh\n# SHUVR_INTEGRATION_ID=claude\n# SHUVR_INTEGRATION_VERSION=2\n",
         )
         .unwrap();
         std::env::set_var("HOME", &home);
@@ -2362,7 +2362,7 @@ mod tests {
     }
 
     #[test]
-    fn uninstall_claude_removes_herdr_hooks_and_preserves_others() {
+    fn uninstall_claude_removes_shuvr_hooks_and_preserves_others() {
         let _lock = integration_env_lock();
         let base = unique_base();
         let home = base.join("home");
@@ -2445,7 +2445,7 @@ mod tests {
         let hook_path = codex_dir.join(CODEX_HOOK_INSTALL_NAME);
         fs::write(
             &hook_path,
-            "#!/bin/sh\n# HERDR_INTEGRATION_ID=codex\n# HERDR_INTEGRATION_VERSION=2\n",
+            "#!/bin/sh\n# SHUVR_INTEGRATION_ID=codex\n# SHUVR_INTEGRATION_VERSION=2\n",
         )
         .unwrap();
         std::env::set_var("HOME", &home);
@@ -2605,7 +2605,7 @@ mod tests {
     }
 
     #[test]
-    fn uninstall_codex_removes_herdr_hooks_and_leaves_config_alone() {
+    fn uninstall_codex_removes_shuvr_hooks_and_leaves_config_alone() {
         let _lock = integration_env_lock();
         let base = unique_base();
         let home = base.join("home");
@@ -2769,7 +2769,7 @@ mod tests {
         );
         assert_eq!(manifest, HERMES_PLUGIN_MANIFEST_ASSET);
         assert_eq!(init, HERMES_PLUGIN_INIT_ASSET);
-        assert!(config.contains("plugins:\n  enabled:\n    - herdr-agent-state"));
+        assert!(config.contains("plugins:\n  enabled:\n    - shuvr-agent-state"));
 
         std::env::remove_var("HOME");
         let _ = fs::remove_dir_all(base);
@@ -2784,7 +2784,7 @@ mod tests {
         fs::create_dir_all(&hermes_dir).unwrap();
         fs::write(
             hermes_dir.join("config.yaml"),
-            "plugins:\n  enabled:\n    - herdr-agent-state\n",
+            "plugins:\n  enabled:\n    - shuvr-agent-state\n",
         )
         .unwrap();
         std::env::set_var("HOME", &home);
@@ -2793,7 +2793,7 @@ mod tests {
         install_hermes().unwrap();
 
         let config = fs::read_to_string(hermes_dir.join("config.yaml")).unwrap();
-        assert_eq!(config.matches("herdr-agent-state").count(), 1);
+        assert_eq!(config.matches("shuvr-agent-state").count(), 1);
 
         std::env::remove_var("HOME");
         let _ = fs::remove_dir_all(base);
@@ -2814,7 +2814,7 @@ mod tests {
         .unwrap();
         fs::write(
             hermes_dir.join("config.yaml"),
-            "plugins:\n  enabled:\n    - other-plugin\n    - herdr-agent-state\n",
+            "plugins:\n  enabled:\n    - other-plugin\n    - shuvr-agent-state\n",
         )
         .unwrap();
         std::env::set_var("HOME", &home);
@@ -2826,7 +2826,7 @@ mod tests {
         assert!(result.updated_config);
         assert!(!plugin_dir.exists());
         assert!(config.contains("    - other-plugin"));
-        assert!(!config.contains("herdr-agent-state"));
+        assert!(!config.contains("shuvr-agent-state"));
 
         std::env::remove_var("HOME");
         let _ = fs::remove_dir_all(base);
@@ -2854,7 +2854,7 @@ mod tests {
         assert!(PI_EXTENSION_ASSET.contains("agent_session_id: currentAgentSessionId"));
         assert!(PI_EXTENSION_ASSET.contains("publishState(true)"));
         assert!(CLAUDE_HOOK_ASSET.contains("agent_session_id"));
-        assert!(CODEX_HOOK_ASSET.contains("HERDR_HOOK_INPUT_FILE"));
+        assert!(CODEX_HOOK_ASSET.contains("SHUVR_HOOK_INPUT_FILE"));
         assert!(CODEX_HOOK_ASSET.contains("agent_session_id"));
         assert!(OPENCODE_PLUGIN_ASSET.contains("properties?.sessionID"));
         assert!(OPENCODE_PLUGIN_ASSET.contains("dispose: async"));
@@ -2865,7 +2865,7 @@ mod tests {
         // Qoder hook reads the event from the stdin JSON payload (per
         // https://docs.qoder.com/zh/cli/hooks). Make sure the bundled script
         // never reaches for a QODER_HOOK_EVENT environment variable.
-        assert!(QODERCLI_HOOK_ASSET.contains("HERDR_HOOK_INPUT_FILE"));
+        assert!(QODERCLI_HOOK_ASSET.contains("SHUVR_HOOK_INPUT_FILE"));
         assert!(QODERCLI_HOOK_ASSET.contains("hook_event_name"));
         assert!(QODERCLI_HOOK_ASSET.contains("agent_session_id"));
         assert!(!QODERCLI_HOOK_ASSET.contains("QODER_HOOK_EVENT"));
@@ -2955,7 +2955,7 @@ mod tests {
     }
 
     #[test]
-    fn uninstall_qodercli_removes_herdr_hooks_and_preserves_others() {
+    fn uninstall_qodercli_removes_shuvr_hooks_and_preserves_others() {
         let _lock = integration_env_lock();
         let base = unique_base();
         let qoder_dir = base.join(".qoder");

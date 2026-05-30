@@ -61,7 +61,7 @@ impl App {
                 })
             })
             .ok_or_else(|| {
-                "Herdr worktree actions require a workspace inside a Git work tree.".to_string()
+                "Shuvr worktree actions require a workspace inside a Git work tree.".to_string()
             })?;
         let source_checkout_path = existing_membership
             .as_ref()
@@ -132,7 +132,7 @@ impl App {
             .is_some_and(|space| space.is_linked_worktree)
         {
             self.state.config_diagnostic =
-                Some("This workspace is not a Herdr-managed worktree checkout.".into());
+                Some("This workspace is not a Shuvr-managed worktree checkout.".into());
             return;
         }
         let Some(space) = ws.worktree_space().cloned() else {
@@ -667,7 +667,7 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or(0);
-        std::env::temp_dir().join(format!("herdr-{name}-{}-{nanos}", std::process::id()))
+        std::env::temp_dir().join(format!("shuvr-{name}-{}-{nanos}", std::process::id()))
     }
 
     fn run_git(repo: &std::path::Path, args: &[&str]) {
@@ -689,8 +689,8 @@ mod tests {
         let repo = unique_temp_path(name);
         std::fs::create_dir_all(&repo).unwrap();
         run_git(&repo, &["init", "--quiet"]);
-        run_git(&repo, &["config", "user.email", "herdr@example.invalid"]);
-        run_git(&repo, &["config", "user.name", "Herdr Test"]);
+        run_git(&repo, &["config", "user.email", "shuvr@example.invalid"]);
+        run_git(&repo, &["config", "user.name", "Shuvr Test"]);
         std::fs::write(repo.join("README.md"), "test\n").unwrap();
         run_git(&repo, &["add", "README.md"]);
         run_git(&repo, &["commit", "--quiet", "-m", "initial"]);
@@ -730,12 +730,12 @@ mod tests {
         app.state.worktree_open = Some(WorktreeOpenState {
             source_workspace_id: app.state.workspaces[0].id.clone(),
             source_existing_membership: None,
-            source_checkout_path: "/repo/herdr".into(),
-            source_repo_root: "/repo/herdr".into(),
+            source_checkout_path: "/repo/shuvr".into(),
+            source_repo_root: "/repo/shuvr".into(),
             repo_key: "repo-key".into(),
-            repo_name: "herdr".into(),
+            repo_name: "shuvr".into(),
             entries: vec![WorktreeOpenEntry {
-                path: "/repo/herdr-issue".into(),
+                path: "/repo/shuvr-issue".into(),
                 branch: Some("worktree/issue".into()),
                 is_linked_worktree: true,
                 already_open_ws_idx: Some(1),
@@ -754,7 +754,7 @@ mod tests {
         assert_eq!(target_membership.key, "repo-key");
         assert_eq!(
             target_membership.checkout_path,
-            std::path::PathBuf::from("/repo/herdr-issue")
+            std::path::PathBuf::from("/repo/shuvr-issue")
         );
         assert!(target_membership.is_linked_worktree);
     }
@@ -805,9 +805,9 @@ mod tests {
         app.state.mode = Mode::Navigate;
         app.state.workspaces[0].worktree_space = Some(crate::workspace::WorktreeSpaceMembership {
             key: "repo-key".into(),
-            label: "herdr".into(),
-            repo_root: "/repo/herdr".into(),
-            checkout_path: "/repo/herdr-issue".into(),
+            label: "shuvr".into(),
+            repo_root: "/repo/shuvr".into(),
+            checkout_path: "/repo/shuvr-issue".into(),
             is_linked_worktree: true,
         });
 
@@ -837,11 +837,11 @@ mod tests {
         app.state.name_input = "issue/137".into();
         app.state.worktree_create = Some(WorktreeCreateState {
             source_workspace_id: "source".into(),
-            source_checkout_path: std::path::PathBuf::from("/repo/herdr"),
+            source_checkout_path: std::path::PathBuf::from("/repo/shuvr"),
             source_existing_membership: None,
-            source_repo_root: std::path::PathBuf::from("/repo/herdr"),
+            source_repo_root: std::path::PathBuf::from("/repo/shuvr"),
             repo_key: "repo-key".into(),
-            repo_name: "herdr".into(),
+            repo_name: "shuvr".into(),
             branch: "old".into(),
             checkout_path: std::path::PathBuf::from("/old"),
             error: Some("old error".into()),
@@ -854,7 +854,7 @@ mod tests {
         assert_eq!(create.branch, "issue/137");
         assert_eq!(
             create.checkout_path,
-            std::path::PathBuf::from("/w/herdr/issue-137")
+            std::path::PathBuf::from("/w/shuvr/issue-137")
         );
         assert_eq!(create.error, None);
     }
@@ -864,7 +864,7 @@ mod tests {
         let repo = create_committed_repo("app-worktree-add-repo");
         let worktree_root = unique_temp_path("app-worktree-add-root");
         let branch = "worktree/app-worker";
-        let checkout = crate::worktree::default_checkout_path(&worktree_root, "herdr", branch);
+        let checkout = crate::worktree::default_checkout_path(&worktree_root, "shuvr", branch);
         let mut app = app_for_worktree_tests();
         app.state.worktree_directory = worktree_root.clone();
         app.state.name_input = branch.into();
@@ -874,7 +874,7 @@ mod tests {
             source_existing_membership: None,
             source_repo_root: repo.clone(),
             repo_key: "repo-key".into(),
-            repo_name: "herdr".into(),
+            repo_name: "shuvr".into(),
             branch: branch.into(),
             checkout_path: checkout.clone(),
             error: None,
@@ -926,7 +926,7 @@ mod tests {
 
         let worktree_root = unique_temp_path("app-worktree-add-from-source-root");
         let branch = "worktree/from-source";
-        let checkout = crate::worktree::default_checkout_path(&worktree_root, "herdr", branch);
+        let checkout = crate::worktree::default_checkout_path(&worktree_root, "shuvr", branch);
         let mut app = app_for_worktree_tests();
         app.state.worktree_directory = worktree_root.clone();
         app.state.name_input = branch.into();
@@ -936,7 +936,7 @@ mod tests {
             source_existing_membership: None,
             source_repo_root: repo.clone(),
             repo_key: "repo-key".into(),
-            repo_name: "herdr".into(),
+            repo_name: "shuvr".into(),
             branch: branch.into(),
             checkout_path: checkout.clone(),
             error: None,
@@ -966,11 +966,11 @@ mod tests {
 
     #[test]
     fn dirty_worktree_remove_failure_requests_force_confirmation() {
-        let path = std::path::PathBuf::from("/w/herdr/dirty");
+        let path = std::path::PathBuf::from("/w/shuvr/dirty");
         let mut app = app_for_worktree_tests();
         app.state.worktree_remove = Some(WorktreeRemoveState {
             workspace_id: "ws".into(),
-            repo_root: std::path::PathBuf::from("/repo/herdr"),
+            repo_root: std::path::PathBuf::from("/repo/shuvr"),
             path: path.clone(),
             error: None,
             removing: true,
@@ -981,7 +981,7 @@ mod tests {
             workspace_id: "ws".into(),
             path,
             result: Err(
-                "fatal: '/w/herdr/dirty' contains modified or untracked files, use --force to delete it"
+                "fatal: '/w/shuvr/dirty' contains modified or untracked files, use --force to delete it"
                     .into(),
             ),
         });
@@ -994,11 +994,11 @@ mod tests {
 
     #[test]
     fn non_dirty_worktree_remove_failure_keeps_error_message() {
-        let path = std::path::PathBuf::from("/w/herdr/missing");
+        let path = std::path::PathBuf::from("/w/shuvr/missing");
         let mut app = app_for_worktree_tests();
         app.state.worktree_remove = Some(WorktreeRemoveState {
             workspace_id: "ws".into(),
-            repo_root: std::path::PathBuf::from("/repo/herdr"),
+            repo_root: std::path::PathBuf::from("/repo/shuvr"),
             path: path.clone(),
             error: None,
             removing: true,
@@ -1008,7 +1008,7 @@ mod tests {
         app.handle_worktree_remove_finished(WorktreeRemoveResult {
             workspace_id: "ws".into(),
             path,
-            result: Err("fatal: '/w/herdr/missing' is not a working tree".into()),
+            result: Err("fatal: '/w/shuvr/missing' is not a working tree".into()),
         });
 
         let remove = app.state.worktree_remove.unwrap();
@@ -1016,7 +1016,7 @@ mod tests {
         assert!(!remove.force_confirmation);
         assert_eq!(
             remove.error,
-            Some("fatal: '/w/herdr/missing' is not a working tree".into())
+            Some("fatal: '/w/shuvr/missing' is not a working tree".into())
         );
     }
 
@@ -1043,7 +1043,7 @@ mod tests {
         let workspace_id = app.state.workspaces[0].id.clone();
         app.state.workspaces[0].worktree_space = Some(crate::workspace::WorktreeSpaceMembership {
             key: "repo-key".into(),
-            label: "herdr".into(),
+            label: "shuvr".into(),
             repo_root: repo.clone(),
             checkout_path: checkout.clone(),
             is_linked_worktree: true,

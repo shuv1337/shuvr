@@ -1,12 +1,12 @@
-// installed by herdr
-// managed by herdr; reinstalling or updating the integration overwrites this file.
+// installed by shuvr
+// managed by shuvr; reinstalling or updating the integration overwrites this file.
 // add custom hooks/plugins beside this file instead of editing it.
-// HERDR_INTEGRATION_ID=opencode
-// HERDR_INTEGRATION_VERSION=3
+// SHUVR_INTEGRATION_ID=opencode
+// SHUVR_INTEGRATION_VERSION=3
 
 import net from "node:net";
 
-const SOURCE = "herdr:opencode";
+const SOURCE = "shuvr:opencode";
 let reportSeq = Date.now() * 1000;
 
 function nextReportSeq() {
@@ -21,8 +21,8 @@ function sessionIDFromProperties(properties) {
 }
 
 function reportState(action, sessionID) {
-  const paneId = process.env.HERDR_PANE_ID;
-  const socketPath = process.env.HERDR_SOCKET_PATH;
+  const paneId = process.env.SHUVR_PANE_ID;
+  const socketPath = process.env.SHUVR_SOCKET_PATH;
 
   if (!paneId || !socketPath) {
     return Promise.resolve();
@@ -71,11 +71,11 @@ function reportState(action, sessionID) {
   });
 }
 
-export const HerdrAgentStatePlugin = async () => {
+export const ShuvrAgentStatePlugin = async () => {
   if (
-    process.env.HERDR_ENV !== "1" ||
-    !process.env.HERDR_SOCKET_PATH ||
-    !process.env.HERDR_PANE_ID
+    process.env.SHUVR_ENV !== "1" ||
+    !process.env.SHUVR_SOCKET_PATH ||
+    !process.env.SHUVR_PANE_ID
   ) {
     return {};
   }

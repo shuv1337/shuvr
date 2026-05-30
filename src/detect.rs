@@ -25,7 +25,7 @@ pub struct AgentDetection {
     /// scrollback and may override a non-blocked integration state.
     pub visible_blocker: bool,
     /// True when the current screen visibly shows the agent's idle input UI.
-    /// This lets Herdr recover from integrations that miss an interrupt/stop
+    /// This lets Shuvr recover from integrations that miss an interrupt/stop
     /// event without treating an empty or ambiguous screen as idle authority.
     pub visible_idle: bool,
     /// True when the current screen visibly shows live working chrome. This is
@@ -1301,7 +1301,7 @@ mod tests {
 
     fn temp_detection_path(name: &str) -> std::path::PathBuf {
         let unique = format!(
-            "herdr-detect-tests-{}-{}-{}",
+            "shuvr-detect-tests-{}-{}-{}",
             name,
             std::process::id(),
             std::time::SystemTime::now()
@@ -1680,7 +1680,7 @@ mod tests {
 
     #[test]
     fn claude_bash_permission_modal_is_visible_blocker() {
-        let screen = "● Bash(mkdir -p /tmp/herdr-claude-detector-test && for i in 1 2 3; do dd if=/dev/urandom)\n  ⎿  Waiting…\n\n────────────────────────\n Bash command\n\n   mkdir -p /tmp/herdr-claude-detector-test && ls -la /tmp/herdr-claude-detector-test\n   Create random files in temporary detector directory\n\n Contains expansion\n\n Do you want to proceed?\n ❯ 1. Yes\n   2. No\n\n Esc to cancel · Tab to amend · ctrl+e to explain";
+        let screen = "● Bash(mkdir -p /tmp/shuvr-claude-detector-test && for i in 1 2 3; do dd if=/dev/urandom)\n  ⎿  Waiting…\n\n────────────────────────\n Bash command\n\n   mkdir -p /tmp/shuvr-claude-detector-test && ls -la /tmp/shuvr-claude-detector-test\n   Create random files in temporary detector directory\n\n Contains expansion\n\n Do you want to proceed?\n ❯ 1. Yes\n   2. No\n\n Esc to cancel · Tab to amend · ctrl+e to explain";
         let detection = detect_agent(Some(Agent::Claude), screen);
 
         assert_eq!(detection.state, AgentState::Blocked);
@@ -1690,7 +1690,7 @@ mod tests {
 
     #[test]
     fn claude_cropped_bash_permission_modal_is_visible_blocker() {
-        let screen = "● Bash(mkdir -p /tmp/herdr-claude-detector-test && ls -la /tmp/herdr-claude-detector-test)\n  ⎿  Waiting…\n\nDo you want to proceed?\n❯ 1. Yes\n  2. No";
+        let screen = "● Bash(mkdir -p /tmp/shuvr-claude-detector-test && ls -la /tmp/shuvr-claude-detector-test)\n  ⎿  Waiting…\n\nDo you want to proceed?\n❯ 1. Yes\n  2. No";
         let detection = detect_agent(Some(Agent::Claude), screen);
 
         assert_eq!(detection.state, AgentState::Blocked);
@@ -1843,7 +1843,7 @@ mod tests {
 
     #[test]
     fn codex_interrupted_prompt_is_visible_idle() {
-        let screen = "■ Conversation interrupted - tell the model what to do differently. Something went\nwrong? Hit `/feedback` to report the issue.\n\n\n› Run /review on my current changes\n\n  gpt-5.5 high · ~/Projects/herdr-worktrees/issue-249-state-arbitration";
+        let screen = "■ Conversation interrupted - tell the model what to do differently. Something went\nwrong? Hit `/feedback` to report the issue.\n\n\n› Run /review on my current changes\n\n  gpt-5.5 high · ~/Projects/shuvr-worktrees/issue-249-state-arbitration";
         let detection = detect_agent(Some(Agent::Codex), screen);
 
         assert_eq!(detection.state, AgentState::Idle);
@@ -2403,7 +2403,7 @@ mod tests {
 
     #[test]
     fn kimi_idle() {
-        let screen = "Welcome to Kimi Code CLI!\n── input ─\n────────────────\nagent (Kimi-k2.6 ●)  ~/Projects/herdr";
+        let screen = "Welcome to Kimi Code CLI!\n── input ─\n────────────────\nagent (Kimi-k2.6 ●)  ~/Projects/shuvr";
         assert_eq!(detect_kimi(screen), AgentState::Idle);
     }
 
@@ -2555,7 +2555,7 @@ mod tests {
 
     #[test]
     fn amp_idle() {
-        let screen = "  Response complete.\n\n╭─100% of 272k · $1.20─────────────────────────╮\n│                                               │\n╰───────────────────────~/Projects/herdr (master)╯";
+        let screen = "  Response complete.\n\n╭─100% of 272k · $1.20─────────────────────────╮\n│                                               │\n╰───────────────────────~/Projects/shuvr (master)╯";
         assert_eq!(detect_state(Some(Agent::Amp), screen), AgentState::Idle);
     }
 
@@ -2570,7 +2570,7 @@ mod tests {
     #[test]
     fn grok_blocked_on_permission_prompt() {
         let screen = "Show recent commit history for analysis\n\
-                      git -C /home/can/Projects/herdr log --oneline --decorate -n 12\n\
+                      git -C /home/can/Projects/shuvr log --oneline --decorate -n 12\n\
                       Use ← → to choose permission whitelist scope\n\n\
                       1 (○) Always allow: git -C\n\
                       2 (●) Yes, proceed\n\
@@ -2593,7 +2593,7 @@ mod tests {
 
     #[test]
     fn grok_working_on_tool_spinner() {
-        let screen = "⠼ Run git -C /home/can/Projects/herdr log --oneline 1.0s";
+        let screen = "⠼ Run git -C /home/can/Projects/shuvr log --oneline 1.0s";
         assert_eq!(detect_state(Some(Agent::Grok), screen), AgentState::Working);
     }
 
@@ -2628,7 +2628,7 @@ mod tests {
 
     #[test]
     fn hermes_blocked_on_dangerous_command_prompt() {
-        let screen = "╭────────────────────────────────────────────────────────────╮\n│ ⚠️  Dangerous Command                                      │\n│ mkdir -p /tmp/herdr-hermes-block-test/subdir && touch      │\n│ ❯ 1. Allow once                                            │\n│   2. Allow for this session                                │\n│   3. Add to permanent allowlist                            │\n│   4. Deny                                                  │\n│   5. Show full command                                     │\n╰────────────────────────────────────────────────────────────╯\n  ↑/↓ to select, Enter to confirm\n⚠ ❯";
+        let screen = "╭────────────────────────────────────────────────────────────╮\n│ ⚠️  Dangerous Command                                      │\n│ mkdir -p /tmp/shuvr-hermes-block-test/subdir && touch      │\n│ ❯ 1. Allow once                                            │\n│   2. Allow for this session                                │\n│   3. Add to permanent allowlist                            │\n│   4. Deny                                                  │\n│   5. Show full command                                     │\n╰────────────────────────────────────────────────────────────╯\n  ↑/↓ to select, Enter to confirm\n⚠ ❯";
         assert_eq!(
             detect_state(Some(Agent::Hermes), screen),
             AgentState::Blocked
