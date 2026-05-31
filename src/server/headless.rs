@@ -524,6 +524,7 @@ impl HeadlessServer {
         let Some(client_id) = self.foreground_client_id else {
             self.effective_size = (MIN_COLS, MIN_ROWS);
             self.app.state.outer_terminal_focus = None;
+            self.app.state.foreground_client_cwd = None;
             let server_keybindings = self.server_keybindings.clone();
             apply_keybindings(&mut self.app, &server_keybindings);
             self.sync_visible_server_config_diagnostic(false);
@@ -533,6 +534,7 @@ impl HeadlessServer {
             self.foreground_client_id = None;
             self.effective_size = (MIN_COLS, MIN_ROWS);
             self.app.state.outer_terminal_focus = None;
+            self.app.state.foreground_client_cwd = None;
             let server_keybindings = self.server_keybindings.clone();
             apply_keybindings(&mut self.app, &server_keybindings);
             self.sync_visible_server_config_diagnostic(false);
@@ -541,6 +543,7 @@ impl HeadlessServer {
 
         let terminal_size = client.terminal_size;
         let outer_terminal_focus = client.outer_terminal_focus;
+        let foreground_client_cwd = client.cwd.clone();
         let host_terminal_theme = client.host_terminal_theme;
         let uses_local_keybindings = client.keybindings.is_some();
         let keybindings = client
@@ -551,6 +554,7 @@ impl HeadlessServer {
 
         self.effective_size = terminal_size;
         self.app.state.outer_terminal_focus = outer_terminal_focus;
+        self.app.state.foreground_client_cwd = foreground_client_cwd;
         apply_keybindings(&mut self.app, &keybindings);
         self.sync_visible_server_config_diagnostic(uses_local_keybindings);
         if outer_terminal_focus == Some(true) {
@@ -1707,6 +1711,16 @@ impl HeadlessServer {
                 terminal_id,
                 takeover,
             } => self.attach_terminal_client(client_id, terminal_id, takeover),
+            ServerEvent::ClientSetCwd { client_id, cwd } => {
+                debug!(client_id, cwd = %cwd.display(), "client cwd received");
+                if let Some(client) = self.clients.get_mut(&client_id) {
+                    client.cwd = Some(cwd);
+                    if self.foreground_client_id == Some(client_id) {
+                        self.sync_foreground_client_state();
+                    }
+                }
+                false
+            }
             ServerEvent::ClientAttachScroll {
                 client_id,
                 source,
@@ -3051,6 +3065,46 @@ new_tab = "prefix+t"
             .bindings
             .iter()
             .any(|binding| binding.label == "prefix+c"));
+    }
+
+    #[test]
+    fn client_set_cwd_updates_connection_and_foreground_app_state() {
+        let mut server = test_headless_server();
+        let (writer, _control, _render) = test_client_writer();
+        assert!(server.handle_server_event(ServerEvent::ClientConnected {
+            client_id: 1,
+            cols: 80,
+            rows: 24,
+            cell_width_px: 0,
+            cell_height_px: 0,
+            render_encoding: RenderEncoding::SemanticFrame,
+            keybindings: None,
+            writer,
+        }));
+        assert_eq!(server.foreground_client_id, Some(1));
+        assert_eq!(server.app.state.foreground_client_cwd, None);
+
+        let cwd = PathBuf::from("/tmp/shuvr-client-cwd");
+        assert!(!server.handle_server_event(ServerEvent::ClientSetCwd {
+            client_id: 1,
+            cwd: cwd.clone(),
+        }));
+
+        assert_eq!(
+            server.clients.get(&1).and_then(|client| client.cwd.clone()),
+            Some(cwd.clone())
+        );
+        assert_eq!(server.app.state.foreground_client_cwd, Some(cwd));
+    }
+
+    #[test]
+    fn sync_foreground_client_state_clears_cwd_without_foreground_client() {
+        let mut server = test_headless_server();
+        server.app.state.foreground_client_cwd = Some(PathBuf::from("/tmp/stale-client-cwd"));
+
+        server.sync_foreground_client_state();
+
+        assert_eq!(server.app.state.foreground_client_cwd, None);
     }
 
     #[test]

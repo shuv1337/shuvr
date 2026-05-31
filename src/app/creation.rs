@@ -11,9 +11,11 @@ use crate::{config::NewTerminalCwdConfig, workspace::Workspace};
 pub(crate) fn resolve_new_terminal_cwd(
     policy: &NewTerminalCwdConfig,
     follow_cwd: Option<PathBuf>,
+    foreground_client_cwd: Option<PathBuf>,
 ) -> PathBuf {
     match policy {
         NewTerminalCwdConfig::Follow => follow_cwd
+            .or(foreground_client_cwd)
             .or_else(|| std::env::current_dir().ok())
             .unwrap_or_else(|| PathBuf::from("/")),
         NewTerminalCwdConfig::Home => std::env::var_os("HOME")
@@ -36,7 +38,11 @@ impl App {
     }
 
     pub(super) fn resolve_new_terminal_cwd(&self, follow_cwd: Option<PathBuf>) -> PathBuf {
-        resolve_new_terminal_cwd(&self.state.new_terminal_cwd, follow_cwd)
+        resolve_new_terminal_cwd(
+            &self.state.new_terminal_cwd,
+            follow_cwd,
+            self.state.foreground_client_cwd.clone(),
+        )
     }
 
     pub(super) fn workspace_creation_source(&self) -> Option<usize> {
@@ -373,4 +379,51 @@ fn terminal_agent_session_info(
             kind: session.session_ref.kind,
             value: session.session_ref.value.clone(),
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn follow_cwd_wins_over_foreground_client_cwd() {
+        let cwd = resolve_new_terminal_cwd(
+            &NewTerminalCwdConfig::Follow,
+            Some(PathBuf::from("/tmp/shuvr-follow")),
+            Some(PathBuf::from("/tmp/shuvr-client")),
+        );
+
+        assert_eq!(cwd, PathBuf::from("/tmp/shuvr-follow"));
+    }
+
+    #[test]
+    fn foreground_client_cwd_wins_over_server_current_dir_for_follow() {
+        let cwd = resolve_new_terminal_cwd(
+            &NewTerminalCwdConfig::Follow,
+            None,
+            Some(PathBuf::from("/tmp/shuvr-client")),
+        );
+
+        assert_eq!(cwd, PathBuf::from("/tmp/shuvr-client"));
+    }
+
+    #[test]
+    fn follow_uses_server_current_dir_when_client_cwd_is_unknown() {
+        let expected = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
+        let cwd = resolve_new_terminal_cwd(&NewTerminalCwdConfig::Follow, None, None);
+
+        assert_eq!(cwd, expected);
+    }
+
+    #[test]
+    fn current_policy_ignores_foreground_client_cwd() {
+        let expected = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
+        let cwd = resolve_new_terminal_cwd(
+            &NewTerminalCwdConfig::Current,
+            None,
+            Some(PathBuf::from("/tmp/shuvr-client")),
+        );
+
+        assert_eq!(cwd, expected);
+    }
 }

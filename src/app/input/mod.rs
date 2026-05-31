@@ -410,6 +410,7 @@ impl AppState {
         let cwd = Some(super::creation::resolve_new_terminal_cwd(
             &self.new_terminal_cwd,
             follow_cwd,
+            self.foreground_client_cwd.clone(),
         ));
 
         let previous_focus = self.current_pane_focus_target();

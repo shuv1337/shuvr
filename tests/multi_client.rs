@@ -550,14 +550,14 @@ fn client_handshake(
 
 fn connect_raw_client(client_socket: &Path, cols: u16, rows: u16) -> UnixStream {
     let mut stream = UnixStream::connect(client_socket).expect("should connect to client socket");
-    client_handshake(&mut stream, 11, cols, rows).expect("handshake should succeed");
+    client_handshake(&mut stream, 12, cols, rows).expect("handshake should succeed");
     stream
 }
 
 fn send_client_input(stream: &mut UnixStream, data: &[u8]) {
-    // ClientMessage::Input = variant 1
+    // ClientMessage::Input = variant 2
     let payload = {
-        let mut buf = encode_varint_u32(1);
+        let mut buf = encode_varint_u32(2);
         buf.extend_from_slice(&encode_varint_u32(data.len() as u32));
         buf.extend_from_slice(data);
         buf
@@ -567,8 +567,8 @@ fn send_client_input(stream: &mut UnixStream, data: &[u8]) {
 }
 
 fn send_client_detach(stream: &mut UnixStream) {
-    // ClientMessage::Detach = variant 4
-    let payload = encode_varint_u32(4);
+    // ClientMessage::Detach = variant 5
+    let payload = encode_varint_u32(5);
     stream.write_all(&frame_message(&payload)).unwrap();
     stream.flush().unwrap();
 }

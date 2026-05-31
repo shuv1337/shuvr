@@ -6,6 +6,7 @@
 
 use std::io::{self, Write};
 use std::os::unix::net::UnixStream;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -59,6 +60,8 @@ pub(crate) enum ServerEvent {
         keybindings: Option<Box<crate::config::LiveKeybindConfig>>,
         writer: ClientWriter,
     },
+    /// A client reported its launch directory.
+    ClientSetCwd { client_id: u64, cwd: PathBuf },
     /// A client sent an input message.
     ClientInput { client_id: u64, data: Vec<u8> },
     /// A client sent local clipboard image bytes to paste into a remote pane.
@@ -418,6 +421,7 @@ fn client_read_loop(
                     }
                 }
             }
+            ClientMessage::SetCwd { cwd } => ServerEvent::ClientSetCwd { client_id, cwd },
             ClientMessage::Resize {
                 cols,
                 rows,
@@ -651,6 +655,42 @@ new_tab = "ctrl+notakey"
         {
             ServerEvent::ClientDisconnected { client_id } => assert_eq!(client_id, 7),
             other => panic!("expected ClientDisconnected, got {other:?}"),
+        }
+
+        drop(client_stream);
+        should_quit.store(true, Ordering::Release);
+        handle
+            .join()
+            .expect("read thread join")
+            .expect("read thread result");
+    }
+
+    #[test]
+    fn client_read_loop_emits_client_set_cwd() {
+        let (mut client_stream, server_stream) = UnixStream::pair().expect("socket pair");
+        let (server_event_tx, mut server_event_rx) = mpsc::channel(4);
+        let should_quit = Arc::new(AtomicBool::new(false));
+        let read_quit = should_quit.clone();
+        let handle = std::thread::spawn(move || {
+            client_read_loop(server_stream, 7, &server_event_tx, &read_quit)
+        });
+
+        let cwd = PathBuf::from("/tmp/shuvr-client-cwd");
+        protocol::write_message(
+            &mut client_stream,
+            &ClientMessage::SetCwd { cwd: cwd.clone() },
+        )
+        .expect("write cwd");
+
+        match server_event_rx.blocking_recv().expect("client cwd event") {
+            ServerEvent::ClientSetCwd {
+                client_id,
+                cwd: actual,
+            } => {
+                assert_eq!(client_id, 7);
+                assert_eq!(actual, cwd);
+            }
+            other => panic!("expected ClientSetCwd, got {other:?}"),
         }
 
         drop(client_stream);

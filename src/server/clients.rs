@@ -23,6 +23,8 @@ pub(crate) type RenderTarget = (
 pub(crate) struct ClientConnection {
     /// Whether this connection is the full app client or a direct terminal attach.
     pub(crate) mode: ClientConnectionMode,
+    /// Directory this client was launched from, when reported by the client.
+    pub(crate) cwd: Option<PathBuf>,
     /// Client-local app keybindings. None means use the server's keybindings.
     pub(crate) keybindings: Option<Box<crate::config::LiveKeybindConfig>>,
     /// The client's terminal size after clamping.
@@ -90,6 +92,7 @@ impl ClientConnection {
     ) -> Self {
         Self {
             mode,
+            cwd: None,
             keybindings,
             terminal_size,
             cell_size,

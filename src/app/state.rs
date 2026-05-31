@@ -1149,6 +1149,8 @@ pub struct AppState {
     /// Last reported focus state for the outer terminal hosting shuvr.
     /// None means unsupported or not yet reported, which preserves active-pane suppression.
     pub outer_terminal_focus: Option<bool>,
+    /// Launch directory of the foreground thin client, when known.
+    pub foreground_client_cwd: Option<std::path::PathBuf>,
     // Config
     pub prefix_code: KeyCode,
     pub prefix_mods: KeyModifiers,
@@ -1465,6 +1467,7 @@ impl AppState {
             toast: None,
             copy_feedback: None,
             outer_terminal_focus: None,
+            foreground_client_cwd: None,
             prefix_code: KeyCode::Char('b'),
             prefix_mods: KeyModifiers::CONTROL,
             default_sidebar_width: 26,

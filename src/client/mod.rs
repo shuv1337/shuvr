@@ -409,6 +409,10 @@ fn requested_keybindings() -> ClientKeybindings {
     }
 }
 
+fn client_launch_cwd_message(cwd: io::Result<std::path::PathBuf>) -> Option<ClientMessage> {
+    cwd.ok().map(|cwd| ClientMessage::SetCwd { cwd })
+}
+
 /// Performs the client→server handshake.
 ///
 /// Sends Hello with the terminal size and protocol version, reads the Welcome
@@ -525,6 +529,7 @@ fn run_client_with_mode(
     let socket_path = client_socket_path();
     crate::logging::startup("client");
     info!(path = %socket_path.display(), "{log_message}");
+    let client_cwd = client_launch_cwd_message(std::env::current_dir());
 
     // Try to connect to the server.
     let mut stream = match UnixStream::connect(&socket_path) {
@@ -556,6 +561,13 @@ fn run_client_with_mode(
             std::process::exit(1);
         }
     };
+
+    if let Some(set_cwd) = client_cwd {
+        if let Err(err) = write_to_server(&mut stream, &set_cwd) {
+            eprintln!("shuvr: failed to send client cwd: {err}");
+            std::process::exit(1);
+        }
+    }
 
     if let Some((terminal_id, takeover)) = attach_request {
         let attach = ClientMessage::AttachTerminal {
@@ -1312,6 +1324,23 @@ mod tests {
                 restore_env_var(key, value);
             }
         }
+    }
+
+    #[test]
+    fn client_launch_cwd_message_uses_successful_current_dir() {
+        let cwd = std::path::PathBuf::from("/tmp/shuvr-client-cwd");
+
+        assert_eq!(
+            client_launch_cwd_message(Ok(cwd.clone())),
+            Some(ClientMessage::SetCwd { cwd })
+        );
+    }
+
+    #[test]
+    fn client_launch_cwd_message_does_not_fake_root_on_error() {
+        let err = io::Error::new(io::ErrorKind::NotFound, "cwd disappeared");
+
+        assert_eq!(client_launch_cwd_message(Err(err)), None);
     }
 
     #[test]

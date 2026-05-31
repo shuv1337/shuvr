@@ -477,6 +477,7 @@ impl App {
             toast: None,
             copy_feedback: None,
             outer_terminal_focus: None,
+            foreground_client_cwd: None,
             prefix_code,
             prefix_mods,
             default_sidebar_width: config.ui.sidebar_width,
@@ -2453,6 +2454,7 @@ mod tests {
         let cwd = creation::resolve_new_terminal_cwd(
             &crate::config::NewTerminalCwdConfig::Follow,
             Some(std::path::PathBuf::from("/tmp/shuvr-source")),
+            None,
         );
 
         assert_eq!(cwd, std::path::PathBuf::from("/tmp/shuvr-source"));
@@ -2463,6 +2465,7 @@ mod tests {
         let cwd = creation::resolve_new_terminal_cwd(
             &crate::config::NewTerminalCwdConfig::Path("/tmp/shuvr-fixed".into()),
             Some(std::path::PathBuf::from("/tmp/shuvr-source")),
+            None,
         );
 
         assert_eq!(cwd, std::path::PathBuf::from("/tmp/shuvr-fixed"));

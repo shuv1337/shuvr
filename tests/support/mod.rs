@@ -15,6 +15,8 @@ static INIT: Once = Once::new();
 static CLEANUP_GUARD: OnceLock<CleanupGuard> = OnceLock::new();
 const WATCHDOG_SCAN_INTERVAL: Duration = Duration::from_secs(1);
 const RUNTIME_OWNER_MARKER: &str = ".shuvr-test-owner-pid";
+pub const CLIENT_MESSAGE_INPUT_VARIANT: u32 = 2;
+pub const CLIENT_MESSAGE_DETACH_VARIANT: u32 = 5;
 
 pub fn register_spawned_shuvr_pid(pid: Option<u32>) {
     let Some(pid) = pid else {
@@ -265,7 +267,7 @@ pub fn read_server_message(stream: &mut UnixStream) -> Result<(u32, Vec<u8>), St
 }
 
 pub fn send_input(stream: &mut UnixStream, data: &[u8]) -> Result<(), String> {
-    let mut buf = encode_varint_u32(1);
+    let mut buf = encode_varint_u32(CLIENT_MESSAGE_INPUT_VARIANT);
     buf.extend_from_slice(&encode_varint_u32(data.len() as u32));
     buf.extend_from_slice(data);
     let framed = frame_message(&buf);
@@ -277,7 +279,7 @@ pub fn send_input(stream: &mut UnixStream, data: &[u8]) -> Result<(), String> {
 }
 
 pub fn send_detach(stream: &mut UnixStream) -> Result<(), String> {
-    let detach_payload = encode_varint_u32(4);
+    let detach_payload = encode_varint_u32(CLIENT_MESSAGE_DETACH_VARIANT);
     let framed = frame_message(&detach_payload);
     stream
         .write_all(&framed)

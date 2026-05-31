@@ -5,6 +5,7 @@
 
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +14,7 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------
 
 /// Current protocol version. Bumped when wire format changes incompatibly.
-pub const PROTOCOL_VERSION: u32 = 11;
+pub const PROTOCOL_VERSION: u32 = 12;
 
 /// Maximum allowed frame payload size (2 MB). Frames larger than this are
 /// rejected to prevent denial-of-service via oversized length prefixes.
@@ -71,6 +72,12 @@ pub enum ClientMessage {
         requested_encoding: RenderEncoding,
         /// Keybinding profile requested by the client.
         keybindings: ClientKeybindings,
+    },
+
+    /// Client launch directory for fallback new-terminal CWD resolution.
+    SetCwd {
+        /// Directory the client was launched from.
+        cwd: PathBuf,
     },
 
     /// Raw input bytes read from the client's stdin.
@@ -659,6 +666,17 @@ mod tests {
     }
 
     #[test]
+    fn client_set_cwd_roundtrip() {
+        let msg = ClientMessage::SetCwd {
+            cwd: PathBuf::from("/tmp/shuvr-client"),
+        };
+        let encoded = bincode::serde::encode_to_vec(&msg, bincode::config::standard()).unwrap();
+        let (decoded, _): (ClientMessage, _) =
+            bincode::serde::decode_from_slice(&encoded, bincode::config::standard()).unwrap();
+        assert_eq!(msg, decoded);
+    }
+
+    #[test]
     fn client_input_roundtrip() {
         let msg = ClientMessage::Input {
             data: vec![0x1b, 0x5b, 0x41], // ESC [ A (up arrow)
@@ -1016,7 +1034,7 @@ mod tests {
         let mut expected = Vec::new();
 
         for i in 0..150u32 {
-            let msg = match i % 5 {
+            let msg = match i % 6 {
                 0 => ClientMessage::Hello {
                     version: PROTOCOL_VERSION,
                     cols: (80 + (i % 40) as u16),
@@ -1026,20 +1044,23 @@ mod tests {
                     requested_encoding: RenderEncoding::SemanticFrame,
                     keybindings: ClientKeybindings::Server,
                 },
-                1 => ClientMessage::Input {
+                1 => ClientMessage::SetCwd {
+                    cwd: PathBuf::from(format!("/tmp/shuvr-{i}")),
+                },
+                2 => ClientMessage::Input {
                     data: vec![(i % 256) as u8; (i as usize % 50) + 1],
                 },
-                2 => ClientMessage::ClipboardImage {
+                3 => ClientMessage::ClipboardImage {
                     extension: "png".to_owned(),
                     data: vec![0x89, b'P', b'N', b'G', (i % 256) as u8],
                 },
-                3 => ClientMessage::Resize {
+                4 => ClientMessage::Resize {
                     cols: (100 + (i % 30) as u16),
                     rows: (30 + (i % 10) as u16),
                     cell_width_px: 8,
                     cell_height_px: 16,
                 },
-                4 => ClientMessage::Detach,
+                5 => ClientMessage::Detach,
                 _ => unreachable!(),
             };
             write_message(&mut buf, &msg).unwrap();
@@ -1494,6 +1515,9 @@ mod tests {
                 cell_height_px: 16,
                 requested_encoding: RenderEncoding::SemanticFrame,
                 keybindings: ClientKeybindings::Server,
+            },
+            ClientMessage::SetCwd {
+                cwd: PathBuf::from("/tmp/shuvr-client"),
             },
             ClientMessage::Input {
                 data: b"hello world".to_vec(),
