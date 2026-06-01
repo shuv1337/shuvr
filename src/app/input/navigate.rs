@@ -398,11 +398,15 @@ pub(super) fn handle_navigate_reserved_key(state: &mut AppState, key: TerminalKe
                     // Empty state: Enter is the zero-knowledge path to the first
                     // workspace. Without this, the only documented action
                     // (the prefix chord) is unreachable from here.
-                    state.request_new_workspace = true;
+                    super::modal::open_new_workspace_dialog(state);
                 } else {
                     state.switch_workspace(state.selected);
                     leave_navigate_mode(state);
                 }
+                return true;
+            }
+            KeyCode::Char('d') if state.workspaces.is_empty() => {
+                super::modal::open_demo_tour(state);
                 return true;
             }
             KeyCode::Char(c @ '1'..='9') => {
@@ -679,8 +683,7 @@ pub(super) fn execute_navigate_action_in_context(
     let previous_mode = state.mode;
     match action {
         NavigateAction::NewWorkspace => {
-            state.request_new_workspace = true;
-            leave_navigate_mode(state);
+            super::modal::open_new_workspace_dialog(state);
         }
         NavigateAction::NewWorktree => {
             if let Some(ws_idx) = workspace_action_target(state, context)
@@ -1114,8 +1117,8 @@ mod tests {
             KeyEvent::new(KeyCode::Char('g'), KeyModifiers::empty()),
         );
 
-        assert!(state.request_new_workspace);
-        assert_eq!(state.mode, Mode::Terminal);
+        assert_eq!(state.mode, Mode::RenameWorkspace);
+        assert!(state.creating_new_workspace);
     }
 
     #[test]
@@ -1587,8 +1590,8 @@ last_pane = "prefix+tab"
 
         app.handle_navigate_key(TerminalKey::new(KeyCode::Char('n'), KeyModifiers::SHIFT));
 
-        assert!(app.state.request_new_workspace);
-        assert_eq!(app.state.mode, Mode::Terminal);
+        assert_eq!(app.state.mode, Mode::RenameWorkspace);
+        assert!(app.state.creating_new_workspace);
     }
 
     #[tokio::test]

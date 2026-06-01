@@ -486,7 +486,7 @@ mod tests {
     use crossterm::event::{MouseButton, MouseEventKind};
     use ratatui::layout::Rect;
 
-    use super::super::{app_for_mouse_test, capture_snapshot, mouse, unique_temp_path};
+    use super::super::{app_for_mouse_test, capture_snapshot, modal, mouse, unique_temp_path};
     use crate::{
         app::state::{AgentPanelScope, DragTarget, Mode},
         detect::Agent,
@@ -494,7 +494,7 @@ mod tests {
     };
 
     #[test]
-    fn clicking_launcher_opens_global_menu() {
+    fn clicking_removed_launcher_area_does_not_open_global_menu() {
         let mut app = app_for_mouse_test();
         let rect = app.state.global_launcher_rect();
 
@@ -504,18 +504,13 @@ mod tests {
             rect.y,
         ));
 
-        assert_eq!(app.state.mode, Mode::GlobalMenu);
+        assert_ne!(app.state.mode, Mode::GlobalMenu);
     }
 
     #[test]
     fn hovering_global_menu_updates_highlight() {
         let mut app = app_for_mouse_test();
-        let launcher = app.state.global_launcher_rect();
-        app.handle_mouse(mouse(
-            MouseEventKind::Down(MouseButton::Left),
-            launcher.x,
-            launcher.y,
-        ));
+        modal::open_global_menu(&mut app.state);
 
         let menu = app.state.global_menu_rect();
         app.handle_mouse(mouse(MouseEventKind::Moved, menu.x + 2, menu.y + 2));
@@ -526,12 +521,7 @@ mod tests {
     #[test]
     fn clicking_keybinds_menu_item_opens_help() {
         let mut app = app_for_mouse_test();
-        let launcher = app.state.global_launcher_rect();
-        app.handle_mouse(mouse(
-            MouseEventKind::Down(MouseButton::Left),
-            launcher.x,
-            launcher.y,
-        ));
+        modal::open_global_menu(&mut app.state);
 
         let menu = app.state.global_menu_rect();
         app.handle_mouse(mouse(
@@ -546,12 +536,7 @@ mod tests {
     #[test]
     fn clicking_settings_menu_item_opens_settings() {
         let mut app = app_for_mouse_test();
-        let launcher = app.state.global_launcher_rect();
-        app.handle_mouse(mouse(
-            MouseEventKind::Down(MouseButton::Left),
-            launcher.x,
-            launcher.y,
-        ));
+        modal::open_global_menu(&mut app.state);
 
         let menu = app.state.global_menu_rect();
         app.handle_mouse(mouse(
@@ -566,12 +551,7 @@ mod tests {
     #[test]
     fn clicking_reload_config_menu_item_requests_reload() {
         let mut app = app_for_mouse_test();
-        let launcher = app.state.global_launcher_rect();
-        app.handle_mouse(mouse(
-            MouseEventKind::Down(MouseButton::Left),
-            launcher.x,
-            launcher.y,
-        ));
+        modal::open_global_menu(&mut app.state);
 
         let menu = app.state.global_menu_rect();
         app.handle_mouse(mouse(
@@ -590,12 +570,7 @@ mod tests {
         app.state.update_available = Some("0.3.2".into());
         app.state.latest_release_notes_available = true;
 
-        let launcher = app.state.global_launcher_rect();
-        app.handle_mouse(mouse(
-            MouseEventKind::Down(MouseButton::Left),
-            launcher.x,
-            launcher.y,
-        ));
+        modal::open_global_menu(&mut app.state);
 
         assert_eq!(
             app.state.global_menu_labels(),
@@ -615,12 +590,7 @@ mod tests {
         let mut app = app_for_mouse_test();
         app.state.detach_exits = false;
 
-        let launcher = app.state.global_launcher_rect();
-        app.handle_mouse(mouse(
-            MouseEventKind::Down(MouseButton::Left),
-            launcher.x,
-            launcher.y,
-        ));
+        modal::open_global_menu(&mut app.state);
 
         assert_eq!(
             app.state.global_menu_labels(),

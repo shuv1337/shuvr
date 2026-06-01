@@ -41,6 +41,7 @@ fn indexed_label(bindings: &[crate::config::IndexedKeybind]) -> String {
     }
 }
 
+#[allow(clippy::vec_init_then_push)] // Fixed workflow groups are followed by an optional custom group.
 pub(super) fn keybind_help_groups(
     app: &AppState,
 ) -> Vec<(&'static str, Vec<(String, &'static str)>)> {
@@ -48,17 +49,78 @@ pub(super) fn keybind_help_groups(
     let mut groups = Vec::new();
 
     groups.push((
-        "global",
+        "Getting Started",
         vec![
             (
                 crate::config::format_key_combo((app.prefix_code, app.prefix_mods)),
                 "prefix mode",
             ),
-            (keybind_label(&kb.help), "keybinds"),
-            (keybind_label(&kb.command_palette), "command palette"),
-            (keybind_label(&kb.settings), "settings"),
-            (keybind_label(&kb.detach), "detach"),
-            (keybind_label(&kb.reload_config), "reload config"),
+            (keybind_label(&kb.new_workspace), "create workspace"),
+            (keybind_label(&kb.new_tab), "new tab"),
+            (keybind_label(&kb.split_vertical), "split vertical"),
+            (keybind_label(&kb.split_horizontal), "split horizontal"),
+            (keybind_label(&kb.detach), "detach session"),
+        ],
+    ));
+
+    groups.push((
+        "Pane Management",
+        vec![
+            (keybind_label(&kb.split_vertical), "split vertical"),
+            (keybind_label(&kb.split_horizontal), "split horizontal"),
+            (keybind_label(&kb.close_pane), "close pane"),
+            (keybind_label(&kb.rename_pane), "rename pane"),
+            (keybind_label(&kb.edit_scrollback), "edit scrollback"),
+            (keybind_label(&kb.copy_mode), "copy mode"),
+            (keybind_label(&kb.zoom), "zoom pane"),
+            (keybind_label(&kb.resize_mode), "resize mode"),
+            (keybind_label(&kb.focus_pane_left), "focus pane left"),
+            (keybind_label(&kb.focus_pane_down), "focus pane down"),
+            (keybind_label(&kb.focus_pane_up), "focus pane up"),
+            (keybind_label(&kb.focus_pane_right), "focus pane right"),
+            (keybind_label(&kb.cycle_pane_next), "cycle pane next"),
+            (
+                keybind_label(&kb.cycle_pane_previous),
+                "cycle pane previous",
+            ),
+            (keybind_label(&kb.last_pane), "last pane"),
+        ],
+    ));
+
+    groups.push((
+        "Workspace & Tab Navigation",
+        vec![
+            ("esc".to_string(), "back"),
+            ("enter".to_string(), "open workspace"),
+            (keybind_label(&kb.workspace_picker), "workspace navigation"),
+            (keybind_label(&kb.new_workspace), "new workspace"),
+            (keybind_label(&kb.new_worktree), "new worktree"),
+            (keybind_label(&kb.open_worktree), "open worktree"),
+            (
+                keybind_label(&kb.remove_worktree),
+                "delete worktree checkout",
+            ),
+            (keybind_label(&kb.rename_workspace), "rename workspace"),
+            (keybind_label(&kb.close_workspace), "close workspace"),
+            (keybind_label(&kb.previous_workspace), "previous workspace"),
+            (keybind_label(&kb.next_workspace), "next workspace"),
+            (indexed_label(&kb.switch_workspace), "switch workspace 1-9"),
+            (keybind_label(&kb.new_tab), "new tab"),
+            (keybind_label(&kb.rename_tab), "rename tab"),
+            (keybind_label(&kb.previous_tab), "previous tab"),
+            (keybind_label(&kb.next_tab), "next tab"),
+            (indexed_label(&kb.switch_tab), "switch tab 1-9"),
+            (keybind_label(&kb.close_tab), "close tab"),
+        ],
+    ));
+
+    groups.push((
+        "Agent & Session",
+        vec![
+            (keybind_label(&kb.goto), "session navigator"),
+            (keybind_label(&kb.previous_agent), "previous agent"),
+            (keybind_label(&kb.next_agent), "next agent"),
+            (indexed_label(&kb.focus_agent), "focus agent 1-9"),
             (
                 keybind_label(&kb.open_notification_target),
                 "open notification target",
@@ -67,82 +129,15 @@ pub(super) fn keybind_help_groups(
     ));
 
     groups.push((
-        "navigation",
+        "System",
         vec![
-            ("esc".to_string(), "back"),
-            (
-                format!(
-                    "{} / {}",
-                    keybind_label(&kb.navigate.workspace_up),
-                    keybind_label(&kb.navigate.workspace_down)
-                ),
-                "workspace list",
-            ),
-            (
-                format!(
-                    "{} / {} / {} / {} / left / right",
-                    keybind_label(&kb.navigate.pane_left),
-                    keybind_label(&kb.navigate.pane_down),
-                    keybind_label(&kb.navigate.pane_up),
-                    keybind_label(&kb.navigate.pane_right)
-                ),
-                "move focus",
-            ),
-            ("tab / shift+tab".to_string(), "cycle pane"),
-            ("enter".to_string(), "open workspace"),
-            ("1..9".to_string(), "switch workspace"),
+            (keybind_label(&kb.help), "keybinds"),
+            (keybind_label(&kb.command_palette), "command palette"),
+            (keybind_label(&kb.settings), "settings"),
+            (keybind_label(&kb.reload_config), "reload config"),
+            (keybind_label(&kb.toggle_sidebar), "toggle sidebar"),
         ],
     ));
-
-    let workspace_tab = vec![
-        (keybind_label(&kb.workspace_picker), "workspace navigation"),
-        (keybind_label(&kb.goto), "session navigator"),
-        (keybind_label(&kb.new_workspace), "new workspace"),
-        (keybind_label(&kb.new_worktree), "new worktree"),
-        (keybind_label(&kb.open_worktree), "open worktree"),
-        (
-            keybind_label(&kb.remove_worktree),
-            "delete worktree checkout",
-        ),
-        (keybind_label(&kb.rename_workspace), "rename workspace"),
-        (keybind_label(&kb.close_workspace), "close workspace"),
-        (keybind_label(&kb.previous_workspace), "previous workspace"),
-        (keybind_label(&kb.next_workspace), "next workspace"),
-        (indexed_label(&kb.switch_workspace), "switch workspace 1-9"),
-        (keybind_label(&kb.previous_agent), "previous agent"),
-        (keybind_label(&kb.next_agent), "next agent"),
-        (indexed_label(&kb.focus_agent), "focus agent 1-9"),
-        (keybind_label(&kb.new_tab), "new tab"),
-        (keybind_label(&kb.rename_tab), "rename tab"),
-        (keybind_label(&kb.previous_tab), "previous tab"),
-        (keybind_label(&kb.next_tab), "next tab"),
-        (indexed_label(&kb.switch_tab), "switch tab 1-9"),
-        (keybind_label(&kb.close_tab), "close tab"),
-    ];
-    groups.push(("workspaces / tabs", workspace_tab));
-
-    let panes = vec![
-        (keybind_label(&kb.split_vertical), "split vertical"),
-        (keybind_label(&kb.split_horizontal), "split horizontal"),
-        (keybind_label(&kb.close_pane), "close pane"),
-        (keybind_label(&kb.rename_pane), "rename pane"),
-        (keybind_label(&kb.edit_scrollback), "edit scrollback"),
-        (keybind_label(&kb.copy_mode), "copy mode"),
-        (keybind_label(&kb.zoom), "zoom pane"),
-        (keybind_label(&kb.resize_mode), "resize mode"),
-        (keybind_label(&kb.toggle_sidebar), "toggle sidebar"),
-        (keybind_label(&kb.focus_pane_left), "focus pane left"),
-        (keybind_label(&kb.focus_pane_down), "focus pane down"),
-        (keybind_label(&kb.focus_pane_up), "focus pane up"),
-        (keybind_label(&kb.focus_pane_right), "focus pane right"),
-        (keybind_label(&kb.cycle_pane_next), "cycle pane next"),
-        (
-            keybind_label(&kb.cycle_pane_previous),
-            "cycle pane previous",
-        ),
-        (keybind_label(&kb.last_pane), "last pane"),
-    ];
-    groups.push(("panes", panes));
 
     if !kb.custom_commands.is_empty() {
         groups.push((
@@ -166,7 +161,24 @@ pub(crate) fn keybind_help_lines(app: &AppState) -> Vec<(usize, Line<'static>)> 
         .add_modifier(Modifier::BOLD);
     let label_style = Style::default().fg(app.palette.text);
 
-    let groups = keybind_help_groups(app);
+    let filter = app.keybind_help.search_filter.trim().to_lowercase();
+    let groups = keybind_help_groups(app)
+        .into_iter()
+        .filter_map(|(group, entries)| {
+            if filter.is_empty() {
+                return Some((group, entries));
+            }
+            let filtered = entries
+                .into_iter()
+                .filter(|(key, label)| {
+                    group.to_lowercase().contains(&filter)
+                        || key.to_lowercase().contains(&filter)
+                        || label.to_lowercase().contains(&filter)
+                })
+                .collect::<Vec<_>>();
+            (!filtered.is_empty()).then_some((group, filtered))
+        })
+        .collect::<Vec<_>>();
     let key_width = groups
         .iter()
         .flat_map(|(_, entries)| entries.iter().map(|(key, _)| key.chars().count()))
@@ -192,6 +204,16 @@ pub(crate) fn keybind_help_lines(app: &AppState) -> Vec<(usize, Line<'static>)> 
             ));
         }
         lines.push((0, Line::raw("")));
+    }
+
+    if lines.is_empty() {
+        lines.push((
+            21,
+            Line::from(Span::styled(
+                " no matching commands",
+                Style::default().fg(app.palette.overlay1),
+            )),
+        ));
     }
 
     lines
@@ -228,7 +250,30 @@ pub(super) fn render_keybind_help_overlay(app: &AppState, frame: &mut Frame) {
         header_rows[1],
     );
 
-    let body_area = stack.content;
+    let content_rows =
+        Layout::vertical([Constraint::Length(3), Constraint::Min(0)]).areas::<2>(stack.content);
+    let search_value = if app.keybind_help.search_filter.is_empty() {
+        "type to filter"
+    } else {
+        app.keybind_help.search_filter.as_str()
+    };
+    frame.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(" search ", Style::default().fg(app.palette.overlay0)),
+            Span::styled(
+                search_value.to_string(),
+                Style::default().fg(app.palette.text),
+            ),
+        ]))
+        .block(
+            ratatui::widgets::Block::default()
+                .borders(ratatui::widgets::Borders::ALL)
+                .border_style(Style::default().fg(app.palette.surface_dim)),
+        ),
+        content_rows[0],
+    );
+
+    let body_area = content_rows[1];
     let metrics = crate::pane::ScrollMetrics {
         offset_from_bottom: app
             .keybind_help_max_scroll()

@@ -1031,21 +1031,6 @@ fn render_workspace_list(
             )),
             new_rect,
         );
-
-        let menu_rect = app.global_launcher_rect();
-        let menu_style = Style::default().fg(p.accent).add_modifier(Modifier::BOLD);
-        let menu_line = if app.global_menu_attention_badge_visible() {
-            Line::from(vec![
-                Span::styled("● ", menu_style),
-                Span::styled("menu", menu_style),
-            ])
-        } else {
-            Line::from(vec![Span::styled("menu", menu_style)])
-        };
-        frame.render_widget(
-            Paragraph::new(menu_line).alignment(Alignment::Right),
-            menu_rect,
-        );
     }
 }
 
@@ -1091,6 +1076,18 @@ fn render_agent_detail(
     let scrollbar_rect = agent_panel_scrollbar_rect(app, area);
     let body = agent_panel_body_rect(area, should_show_scrollbar(metrics));
     if body == Rect::default() {
+        return;
+    }
+
+    if details.is_empty() {
+        frame.render_widget(
+            Paragraph::new(
+                " No agents detected yet. Run a coding agent (claude, codex, or pi) in a pane and its status will appear here.",
+            )
+            .style(Style::default().fg(p.overlay1))
+            .wrap(ratatui::widgets::Wrap { trim: true }),
+            body,
+        );
         return;
     }
 

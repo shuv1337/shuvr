@@ -1,7 +1,8 @@
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
-    text::Span,
+    text::{Line, Span},
+    widgets::{Block, Borders, Paragraph},
     Frame,
 };
 
@@ -36,8 +37,8 @@ use self::mobile::{
 use self::navigator::render_navigator_overlay;
 pub(crate) use self::onboarding::onboarding_welcome_continue_rect;
 use self::onboarding::render_onboarding_overlay;
-pub(crate) use self::panes::empty_state_create_button_rect;
 use self::panes::{compute_pane_infos, render_panes, resize_tab_panes};
+pub(crate) use self::panes::{empty_state_create_button_rect, empty_state_demo_button_rect};
 pub(crate) use self::release_notes::{
     product_announcement_display_lines, release_notes_close_button_rect,
     release_notes_display_lines, release_notes_sections, release_notes_wrapped_line_count,
@@ -416,10 +417,92 @@ pub fn render_with_runtime_registry(
         Mode::ConfirmRemoveWorktree => render_remove_worktree_overlay(app, frame, frame.area()),
         Mode::GlobalMenu => render_global_launcher_menu(app, frame),
         Mode::KeybindHelp => render_keybind_help_overlay(app, frame),
+        Mode::DemoTour => render_demo_tour_overlay(app, frame, frame.area()),
         Mode::Navigator => render_navigator_overlay(app, frame),
         Mode::CommandPalette => render_command_palette_overlay(app, frame),
         Mode::Terminal => {}
     }
+}
+
+fn render_demo_tour_overlay(app: &AppState, frame: &mut Frame, area: Rect) {
+    dim_background(frame, area);
+    let Some(inner) = widgets::render_modal_shell(frame, area, 78, 22, &app.palette) else {
+        return;
+    };
+    if inner.height < 12 {
+        return;
+    }
+
+    let rows = Layout::vertical([
+        Constraint::Length(1),
+        Constraint::Length(1),
+        Constraint::Min(0),
+        Constraint::Length(1),
+    ])
+    .areas::<4>(inner);
+
+    widgets::render_modal_header(frame, rows[0], "demo workspace", &app.palette);
+    frame.render_widget(
+        Paragraph::new(" a static tour of a populated shuvr session")
+            .style(Style::default().fg(app.palette.overlay1)),
+        rows[1],
+    );
+
+    let tour = vec![
+        Line::from(vec![
+            Span::styled(" workspaces ", Style::default().fg(app.palette.mauve).add_modifier(Modifier::BOLD)),
+            Span::styled("  demo-agent-app", Style::default().fg(app.palette.text)),
+            Span::styled("  payments-api", Style::default().fg(app.palette.overlay0)),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled(" tabs ", Style::default().fg(app.palette.mauve).add_modifier(Modifier::BOLD)),
+            Span::styled("  1 editor  2 tests  3 deploy", Style::default().fg(app.palette.text)),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled(" pane 1 ", Style::default().fg(app.palette.accent).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "$ claude \"finish auth migration\"",
+                Style::default().fg(app.palette.text),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled(" pane 2 ", Style::default().fg(app.palette.teal).add_modifier(Modifier::BOLD)),
+            Span::styled("$ just check", Style::default().fg(app.palette.text)),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled(" agents ", Style::default().fg(app.palette.mauve).add_modifier(Modifier::BOLD)),
+            Span::styled(" Claude working", Style::default().fg(app.palette.yellow)),
+            Span::styled("  Codex done", Style::default().fg(app.palette.green)),
+            Span::styled("  Pi needs input", Style::default().fg(app.palette.red)),
+        ]),
+        Line::from(""),
+        Line::from(Span::styled(
+            " Notifications point back to the pane that needs attention. Sessions restore with their workspace, tabs, and scrollback intact.",
+            Style::default().fg(app.palette.overlay1),
+        )),
+    ];
+
+    frame.render_widget(
+        Paragraph::new(tour)
+            .wrap(ratatui::widgets::Wrap { trim: true })
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(app.palette.surface_dim)),
+            ),
+        rows[2],
+    );
+
+    frame.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(" close ", Style::default().fg(app.palette.overlay0)),
+            Span::styled("esc / enter / q", Style::default().fg(app.palette.text)),
+        ])),
+        rows[3],
+    );
 }
 
 fn render_notifications(app: &AppState, frame: &mut Frame, terminal_area: Rect) {
@@ -1026,22 +1109,28 @@ mod tests {
 
         let workspace_tab = groups
             .iter()
-            .find(|(name, _)| *name == "workspaces / tabs")
+            .find(|(name, _)| *name == "Workspace & Tab Navigation")
             .expect("workspace tab group")
             .1
             .clone();
         let panes = groups
             .iter()
-            .find(|(name, _)| *name == "panes")
+            .find(|(name, _)| *name == "Pane Management")
             .expect("panes group")
+            .1
+            .clone();
+        let agents = groups
+            .iter()
+            .find(|(name, _)| *name == "Agent & Session")
+            .expect("agent group")
             .1
             .clone();
 
         assert!(workspace_tab.contains(&("unset".to_string(), "previous workspace")));
         assert!(workspace_tab.contains(&("unset".to_string(), "next workspace")));
-        assert!(workspace_tab.contains(&("unset".to_string(), "previous agent")));
-        assert!(workspace_tab.contains(&("unset".to_string(), "next agent")));
-        assert!(workspace_tab.contains(&("unset".to_string(), "focus agent 1-9")));
+        assert!(agents.contains(&("unset".to_string(), "previous agent")));
+        assert!(agents.contains(&("unset".to_string(), "next agent")));
+        assert!(agents.contains(&("unset".to_string(), "focus agent 1-9")));
         assert!(workspace_tab.contains(&("unset".to_string(), "switch workspace 1-9")));
         assert!(panes
             .iter()

@@ -2,7 +2,7 @@ use ratatui::{
     layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
 };
 
@@ -369,6 +369,7 @@ fn render_selection_highlight(
 /// Label shown inside the empty-state "create workspace" button. Kept as a
 /// constant so the renderer and the mouse hit-test agree on its width.
 pub(crate) const EMPTY_CREATE_LABEL: &str = " + Create workspace  ⏎ ";
+pub(crate) const EMPTY_DEMO_LABEL: &str = " Open demo workspace ";
 
 /// Resolve the new-workspace chord as a concrete key string (e.g. "ctrl+b then
 /// shift+n"). Never returns the jargon token "prefix": the empty state is the
@@ -386,7 +387,8 @@ fn new_workspace_chord(app: &AppState) -> String {
 fn render_empty(app: &AppState, frame: &mut Frame, area: Rect) {
     let p = &app.palette;
 
-    let heading = Style::default().fg(p.text).add_modifier(Modifier::BOLD);
+    let brand = Style::default().fg(p.mauve).add_modifier(Modifier::BOLD);
+    let heading = Style::default().fg(p.accent).add_modifier(Modifier::BOLD);
     let body = Style::default().fg(p.overlay1);
     let dim = Style::default().fg(p.overlay0);
     let accent = Style::default().fg(p.accent).add_modifier(Modifier::BOLD);
@@ -394,37 +396,48 @@ fn render_empty(app: &AppState, frame: &mut Frame, area: Rect) {
         .fg(panel_contrast_fg(p))
         .bg(p.accent)
         .add_modifier(Modifier::BOLD);
+    let demo_button = Style::default()
+        .fg(panel_contrast_fg(p))
+        .bg(p.mauve)
+        .add_modifier(Modifier::BOLD);
 
     let lines = vec![
         Line::from(""),
-        Line::from(Span::styled("  Welcome to shuvr", heading)),
+        Line::from(Span::styled("  shuvr", brand)),
+        Line::from(Span::styled(
+            "  Your workspace for AI coding agents",
+            heading,
+        )),
         Line::from(""),
         Line::from(Span::styled(
-            "  A workspace is one project — a repo or folder",
+            "  Track Claude, Codex, Pi, and terminal sessions from one focused place.",
             body,
         )),
         Line::from(Span::styled(
-            "  with its own tabs, panes, and agents.",
+            "  Keep panes, tabs, notifications, and handoffs tied to the project.",
             body,
         )),
         Line::from(""),
         Line::from(vec![
             Span::styled("  ", dim),
             Span::styled(EMPTY_CREATE_LABEL, button),
+            Span::styled("  ", dim),
+            Span::styled(EMPTY_DEMO_LABEL, demo_button),
         ]),
         Line::from(""),
         Line::from(vec![
             Span::styled("  or press ", dim),
             Span::styled(new_workspace_chord(app), accent),
+            Span::styled(" to create a workspace from any folder", dim),
         ]),
         Line::from(vec![
             Span::styled("  press ", dim),
             Span::styled("?", accent),
-            Span::styled(" for all keys", dim),
+            Span::styled(" for workflow help", dim),
         ]),
     ];
     frame.render_widget(
-        Paragraph::new(lines).block(
+        Paragraph::new(lines).wrap(Wrap { trim: true }).block(
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(p.surface_dim)),
@@ -438,14 +451,37 @@ fn render_empty(app: &AppState, frame: &mut Frame, area: Rect) {
 /// content lines sit above the button, and the label is indented two columns.
 pub(crate) fn empty_state_create_button_rect(area: Rect) -> Rect {
     let width = EMPTY_CREATE_LABEL.chars().count() as u16;
-    let y = area.y.saturating_add(1 + 6);
+    let y = area.y.saturating_add(1 + 7);
     let x = area.x.saturating_add(1 + 2);
     // The button is the 7th content line inside a bordered block, so it only
     // renders when the inner area is tall/wide enough to reach it.
-    if area.width <= 6 || area.height < 9 {
+    if area.width <= 6 || area.height < 10 {
         return Rect::new(area.x, area.y, 0, 0);
     }
     Rect::new(x, y, width.min(area.width.saturating_sub(4)), 1)
+}
+
+pub(crate) fn empty_state_demo_button_rect(area: Rect) -> Rect {
+    let create = empty_state_create_button_rect(area);
+    if create.width == 0 {
+        return Rect::new(area.x, area.y, 0, 0);
+    }
+    let width = EMPTY_DEMO_LABEL.chars().count() as u16;
+    let x = create.x.saturating_add(create.width).saturating_add(2);
+    if x >= area.x.saturating_add(area.width).saturating_sub(1) {
+        return Rect::new(area.x, area.y, 0, 0);
+    }
+    Rect::new(
+        x,
+        create.y,
+        width.min(
+            area.x
+                .saturating_add(area.width)
+                .saturating_sub(1)
+                .saturating_sub(x),
+        ),
+        1,
+    )
 }
 
 #[cfg(test)]

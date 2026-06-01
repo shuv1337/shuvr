@@ -81,22 +81,7 @@ impl AppState {
             return self.handle_settings_mouse(mouse);
         }
 
-        let launcher_enabled = self.view.layout != ViewLayout::Mobile
-            && !self.sidebar_collapsed
-            && matches!(
-                self.mode,
-                Mode::Terminal
-                    | Mode::Navigate
-                    | Mode::Resize
-                    | Mode::GlobalMenu
-                    | Mode::KeybindHelp
-            );
-        let launcher = self.global_launcher_rect();
-        let launcher_hit = launcher_enabled
-            && mouse.column >= launcher.x
-            && mouse.column < launcher.x + launcher.width
-            && mouse.row >= launcher.y
-            && mouse.row < launcher.y + launcher.height;
+        let launcher_hit = false;
 
         if matches!(mouse.kind, MouseEventKind::Moved) && self.mode == Mode::GlobalMenu {
             let actions = global_menu_actions(self);
@@ -157,7 +142,17 @@ impl AppState {
                 && mouse.row >= button.y
                 && mouse.row < button.y + button.height
             {
-                self.request_new_workspace = true;
+                super::modal::open_new_workspace_dialog(self);
+                return None;
+            }
+            let demo_button = crate::ui::empty_state_demo_button_rect(self.view.terminal_area);
+            if demo_button.width > 0
+                && mouse.column >= demo_button.x
+                && mouse.column < demo_button.x + demo_button.width
+                && mouse.row >= demo_button.y
+                && mouse.row < demo_button.y + demo_button.height
+            {
+                super::modal::open_demo_tour(self);
                 return None;
             }
         }
@@ -491,7 +486,7 @@ impl AppState {
                         && mouse.column >= new_button.x
                         && mouse.column < new_button.x + new_button.width;
                     if on_new_button {
-                        self.request_new_workspace = true;
+                        super::modal::open_new_workspace_dialog(self);
                         return None;
                     }
 
@@ -1030,7 +1025,7 @@ impl AppState {
 
         match crate::ui::mobile_switcher_target_at(self, mouse.column, mouse.row) {
             Some(crate::ui::MobileSwitcherTarget::NewWorkspace) => {
-                self.request_new_workspace = true;
+                super::modal::open_new_workspace_dialog(self);
             }
             Some(crate::ui::MobileSwitcherTarget::Workspace(ws_idx)) => {
                 self.switch_workspace(ws_idx);
@@ -1722,7 +1717,8 @@ mod tests {
             button.y,
         ));
 
-        assert!(app.state.request_new_workspace);
+        assert_eq!(app.state.mode, Mode::RenameWorkspace);
+        assert!(app.state.creating_new_workspace);
     }
 
     #[test]
@@ -2593,9 +2589,10 @@ mod tests {
             viewport.x + 2,
             viewport.y + 1,
         ));
-        assert!(app.state.request_new_workspace);
+        assert_eq!(app.state.mode, Mode::RenameWorkspace);
+        assert!(app.state.creating_new_workspace);
 
-        app.state.request_new_workspace = false;
+        app.state.creating_new_workspace = false;
         app.state.mode = Mode::Navigate;
         app.handle_mouse(mouse(
             MouseEventKind::Down(MouseButton::Left),

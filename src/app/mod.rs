@@ -381,7 +381,9 @@ impl App {
         let startup_product_announcement =
             crate::product_announcements::load_unseen_for_current_version();
 
-        let mode = if config.should_show_onboarding() {
+        let mode = if config.should_show_onboarding()
+            || (workspaces.is_empty() && config.onboarding != Some(false))
+        {
             state::Mode::Onboarding
         } else if startup_product_announcement.is_some() {
             state::Mode::ProductAnnouncement
@@ -416,6 +418,8 @@ impl App {
             request_client_config_reload: false,
             request_clipboard_write: None,
             creating_new_tab: false,
+            creating_new_workspace: false,
+            requested_new_workspace_name: None,
             requested_new_tab_name: None,
             rename_pane_target: None,
             worktree_create: None,
@@ -437,7 +441,10 @@ impl App {
                     preview: announcement.preview,
                 }
             }),
-            keybind_help: state::KeybindHelpState { scroll: 0 },
+            keybind_help: state::KeybindHelpState {
+                scroll: 0,
+                search_filter: String::new(),
+            },
             navigator: state::NavigatorState::default(),
             command_palette: state::CommandPaletteState::default(),
             copy_mode: None,
@@ -1358,6 +1365,9 @@ impl App {
             }
             Mode::KeybindHelp => {
                 input::handle_keybind_help_key(&mut self.state, key_event);
+            }
+            Mode::DemoTour => {
+                input::handle_demo_tour_key(&mut self.state, key_event);
             }
             Mode::GlobalMenu => {
                 input::handle_global_menu_key(&mut self.state, key_event);

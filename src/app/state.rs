@@ -645,6 +645,7 @@ pub enum Mode {
     RenameWorkspace,
     RenameTab,
     RenamePane,
+    DemoTour,
     NewLinkedWorktree,
     OpenExistingWorktree,
     ConfirmRemoveWorktree,
@@ -1058,6 +1059,7 @@ pub struct ProductAnnouncementState {
 
 pub struct KeybindHelpState {
     pub scroll: u16,
+    pub search_filter: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1109,6 +1111,8 @@ pub struct AppState {
     /// handled by the outer App/event loop instead of directly from AppState.
     pub request_clipboard_write: Option<Vec<u8>>,
     pub creating_new_tab: bool,
+    pub creating_new_workspace: bool,
+    pub requested_new_workspace_name: Option<String>,
     pub requested_new_tab_name: Option<String>,
     pub rename_pane_target: Option<PaneId>,
     pub worktree_create: Option<WorktreeCreateState>,
@@ -1415,6 +1419,8 @@ impl AppState {
             request_client_config_reload: false,
             request_clipboard_write: None,
             creating_new_tab: false,
+            creating_new_workspace: false,
+            requested_new_workspace_name: None,
             requested_new_tab_name: None,
             rename_pane_target: None,
             worktree_create: None,
@@ -1427,7 +1433,10 @@ impl AppState {
             name_input_replace_on_type: false,
             release_notes: None,
             product_announcement: None,
-            keybind_help: KeybindHelpState { scroll: 0 },
+            keybind_help: KeybindHelpState {
+                scroll: 0,
+                search_filter: String::new(),
+            },
             navigator: NavigatorState::default(),
             command_palette: CommandPaletteState::default(),
             copy_mode: None,

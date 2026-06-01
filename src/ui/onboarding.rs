@@ -27,10 +27,10 @@ pub(crate) fn onboarding_welcome_continue_rect(area: Rect) -> Rect {
 }
 
 fn render_onboarding_welcome(app: &AppState, frame: &mut Frame, area: Rect) {
-    let Some(inner) = render_modal_shell(frame, area, 64, 16, &app.palette) else {
+    let Some(inner) = render_modal_shell(frame, area, 68, 17, &app.palette) else {
         return;
     };
-    if inner.height < 11 {
+    if inner.height < 12 {
         return;
     }
 
@@ -38,8 +38,8 @@ fn render_onboarding_welcome(app: &AppState, frame: &mut Frame, area: Rect) {
     let header_rows =
         Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).areas::<2>(stack.header);
     let content_rows = Layout::vertical([
-        Constraint::Length(3),
         Constraint::Length(1),
+        Constraint::Length(4),
         Constraint::Length(1),
         Constraint::Min(0),
     ])
@@ -48,7 +48,7 @@ fn render_onboarding_welcome(app: &AppState, frame: &mut Frame, area: Rect) {
     frame.render_widget(
         Paragraph::new("  shuvr").style(
             Style::default()
-                .fg(app.palette.text)
+                .fg(app.palette.mauve)
                 .add_modifier(Modifier::BOLD),
         ),
         header_rows[0],
@@ -60,11 +60,20 @@ fn render_onboarding_welcome(app: &AppState, frame: &mut Frame, area: Rect) {
     );
 
     frame.render_widget(
+        Paragraph::new("  shuvr watches your agents so you don't have to").style(
+            Style::default()
+                .fg(app.palette.accent)
+                .add_modifier(Modifier::BOLD),
+        ),
+        content_rows[0],
+    );
+
+    frame.render_widget(
         Paragraph::new(
-            "  Workspaces hold your projects — each a repo or folder.\n  Every tab and pane is a real terminal. Run a coding\n  agent in a pane and watch its state in the sidebar.",
+            "  Get notified when Claude, Codex, or Pi finishes a task.\n  Resume your session across restarts. Every tab and pane\n  is a real terminal. Run a coding agent and watch its\n  state in the sidebar.",
         )
         .style(Style::default().fg(app.palette.overlay1)),
-        content_rows[0],
+        content_rows[1],
     );
 
     let prefix = crate::config::format_key_combo((app.prefix_code, app.prefix_mods));
@@ -85,7 +94,7 @@ fn render_onboarding_welcome(app: &AppState, frame: &mut Frame, area: Rect) {
 
     frame.render_widget(
         Paragraph::new(
-            "  Mouse works too: click, drag panes, right-click for menus.\n  Press → to set up agent integrations (optional).",
+            "  Mouse works too: click, drag panes, right-click for actions.\n  Press -> to set up agent integrations (optional).",
         )
         .style(Style::default().fg(app.palette.overlay1)),
         content_rows[3],

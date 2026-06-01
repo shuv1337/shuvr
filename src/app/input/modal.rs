@@ -96,7 +96,12 @@ pub(super) fn open_global_menu(state: &mut AppState) {
 
 pub(super) fn open_keybind_help(state: &mut AppState) {
     state.keybind_help.scroll = 0;
+    state.keybind_help.search_filter.clear();
     state.mode = Mode::KeybindHelp;
+}
+
+pub(super) fn open_demo_tour(state: &mut AppState) {
+    state.mode = Mode::DemoTour;
 }
 
 fn open_update_release_notes(state: &mut AppState) {
@@ -269,15 +274,56 @@ pub(crate) fn handle_navigator_key(state: &mut AppState, key: KeyEvent) {
 
 pub(crate) fn handle_keybind_help_key(state: &mut AppState, key: KeyEvent) {
     match key.code {
-        KeyCode::Up | KeyCode::Char('k') => state.scroll_keybind_help(-1),
-        KeyCode::Down | KeyCode::Char('j') => state.scroll_keybind_help(1),
+        KeyCode::Up => state.scroll_keybind_help(-1),
+        KeyCode::Down => state.scroll_keybind_help(1),
         KeyCode::PageUp => state.scroll_keybind_help(-8),
         KeyCode::PageDown => state.scroll_keybind_help(8),
         KeyCode::Home => state.keybind_help.scroll = 0,
         KeyCode::End => state.keybind_help.scroll = state.keybind_help_max_scroll(),
         KeyCode::Esc | KeyCode::Enter | KeyCode::Char('?') => leave_modal(state),
+        KeyCode::Backspace => {
+            state.keybind_help.search_filter.pop();
+            state.keybind_help.scroll = 0;
+        }
+        KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            state.keybind_help.search_filter.clear();
+            state.keybind_help.scroll = 0;
+        }
+        KeyCode::Char(c) if key.modifiers.difference(KeyModifiers::SHIFT).is_empty() => {
+            state.keybind_help.search_filter.push(c);
+            state.keybind_help.scroll = 0;
+        }
         _ => {}
     }
+}
+
+pub(crate) fn handle_demo_tour_key(state: &mut AppState, key: KeyEvent) {
+    if matches!(key.code, KeyCode::Esc | KeyCode::Enter | KeyCode::Char('q')) {
+        leave_modal(state);
+    }
+}
+
+fn current_directory_default_name() -> String {
+    std::env::current_dir()
+        .ok()
+        .and_then(|cwd| {
+            cwd.file_name()
+                .and_then(|name| name.to_str())
+                .map(str::to_string)
+        })
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or_else(|| "workspace".to_string())
+}
+
+pub(super) fn open_new_workspace_dialog(state: &mut AppState) {
+    state.creating_new_tab = false;
+    state.creating_new_workspace = true;
+    state.requested_new_tab_name = None;
+    state.requested_new_workspace_name = None;
+    state.rename_pane_target = None;
+    state.name_input = current_directory_default_name();
+    state.name_input_replace_on_type = true;
+    state.mode = Mode::RenameWorkspace;
 }
 
 pub(super) fn open_rename_workspace(
@@ -405,6 +451,14 @@ pub(super) fn apply_rename_action(state: &mut AppState, action: ModalAction) {
                 state.name_input.trim().to_string()
             };
             match state.mode {
+                Mode::RenameWorkspace if state.creating_new_workspace => {
+                    state.request_new_workspace = true;
+                    state.requested_new_workspace_name = if new_name.is_empty() {
+                        None
+                    } else {
+                        Some(new_name)
+                    };
+                }
                 Mode::RenameWorkspace if !state.workspaces.is_empty() && !new_name.is_empty() => {
                     let workspace_id = state.workspaces[state.selected].id.clone();
                     state.workspaces[state.selected].set_custom_name(new_name);
@@ -456,6 +510,7 @@ pub(super) fn apply_rename_action(state: &mut AppState, action: ModalAction) {
                 _ => {}
             }
             state.creating_new_tab = false;
+            state.creating_new_workspace = false;
             state.rename_pane_target = None;
             state.name_input.clear();
             state.name_input_replace_on_type = false;
@@ -467,6 +522,8 @@ pub(super) fn apply_rename_action(state: &mut AppState, action: ModalAction) {
         }
         ModalAction::Cancel => {
             state.creating_new_tab = false;
+            state.creating_new_workspace = false;
+            state.requested_new_workspace_name = None;
             state.requested_new_tab_name = None;
             state.rename_pane_target = None;
             state.name_input.clear();
@@ -665,8 +722,7 @@ pub(super) fn apply_context_menu_action(
             ContextMenuKind::Workspace { .. } | ContextMenuKind::GitWorkspace { .. },
             Some("New workspace"),
         ) => {
-            state.request_new_workspace = true;
-            leave_modal(state);
+            open_new_workspace_dialog(state);
         }
         (
             ContextMenuKind::Workspace { ws_idx } | ContextMenuKind::GitWorkspace { ws_idx, .. },

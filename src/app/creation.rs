@@ -62,13 +62,24 @@ impl App {
 
     /// Create a workspace with a real PTY (needs event_tx).
     pub(crate) fn create_workspace(&mut self) {
+        let custom_name = self.state.requested_new_workspace_name.take();
         let follow_cwd = self
             .workspace_creation_source()
             .and_then(|ws_idx| self.seed_cwd_from_workspace(ws_idx));
         let initial_cwd = self.resolve_new_terminal_cwd(follow_cwd);
-        if let Err(e) = self.create_workspace_with_options(initial_cwd, true) {
-            error!(err = %e, "failed to create workspace");
-            self.state.mode = Mode::Navigate;
+        match self.create_workspace_with_options(initial_cwd, true) {
+            Ok(ws_idx) => {
+                if let Some(name) = custom_name.filter(|name| !name.trim().is_empty()) {
+                    if let Some(ws) = self.state.workspaces.get_mut(ws_idx) {
+                        ws.set_custom_name(name);
+                    }
+                    self.schedule_session_save();
+                }
+            }
+            Err(e) => {
+                error!(err = %e, "failed to create workspace");
+                self.state.mode = Mode::Navigate;
+            }
         }
     }
 
