@@ -1,0 +1,98 @@
+{
+  "stage": "interview",
+  "title": "Fix server/client CWD fallback",
+  "goalSlug": "fix-server-cwd-to-client",
+  "questions": [
+    {
+      "id": "scope",
+      "prompt": "What should this goal include?",
+      "description": "The existing plan is already specific; this sets the boundary for the goal package.",
+      "answerMode": "multi-custom",
+      "recommendedAnswer": "Implement the protocol, client send path, server tracking, AppState sync, CWD resolution changes, focused automated tests, and local validation described in PLAN-fix-server-cwd-to-client.md. Keep documentation/release changes out unless validation reveals they are required.",
+      "recommendedOptionIds": [
+        "protocol",
+        "client_server",
+        "cwd_resolution",
+        "tests",
+        "validation"
+      ],
+      "options": [
+        {
+          "id": "protocol",
+          "label": "Protocol change"
+        },
+        {
+          "id": "client_server",
+          "label": "Client/server state"
+        },
+        {
+          "id": "cwd_resolution",
+          "label": "CWD resolution"
+        },
+        {
+          "id": "tests",
+          "label": "Automated tests"
+        },
+        {
+          "id": "validation",
+          "label": "Local validation"
+        },
+        {
+          "id": "docs",
+          "label": "Docs updates"
+        }
+      ],
+      "required": true
+    },
+    {
+      "id": "verification_standard",
+      "prompt": "What verification standard should mark the goal done?",
+      "description": "Manual server/client behavior is the key external proof for this bug.",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Done requires focused automated tests plus just check, and the goal may remain partial if manual fresh-client/server and multi-client validation cannot be completed in-session.",
+      "recommendedOptionIds": [
+        "full"
+      ],
+      "options": [
+        {
+          "id": "full",
+          "label": "Tests plus manual"
+        },
+        {
+          "id": "automated",
+          "label": "Automated only"
+        },
+        {
+          "id": "manual",
+          "label": "Manual required"
+        }
+      ],
+      "required": true
+    },
+    {
+      "id": "landing_scope",
+      "prompt": "Should this goal include committing and integrating the change?",
+      "description": "AGENTS.md requires proposing the commit message before committing and then fast-forwarding the shared checkout when ready.",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Plan the implementation through a passing local check and a proposed conventional commit message, but require explicit alignment before committing or pushing.",
+      "recommendedOptionIds": [
+        "propose_only"
+      ],
+      "options": [
+        {
+          "id": "propose_only",
+          "label": "Propose before commit"
+        },
+        {
+          "id": "no_commit",
+          "label": "No commit"
+        },
+        {
+          "id": "commit_after_alignment",
+          "label": "Commit after alignment"
+        }
+      ],
+      "required": true
+    }
+  ]
+}
